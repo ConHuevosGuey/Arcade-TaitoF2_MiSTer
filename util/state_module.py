@@ -40,6 +40,13 @@ logger = logging.getLogger(__name__)
 class Config:
     """Configuration constants for state module generation"""
     PREFIX = 'auto_ss'
+    
+    # Chunked savestate interface configuration
+    DATA_WIDTH = 32      # Configurable chunk size in bits
+    STATE_WIDTH = 16     # Bits for state index within device  
+    DEVICE_WIDTH = 8     # Bits for device index
+    MAX_PACK_SIZE = 32   # Maximum bits to pack together
+    
     RESET_SIGNALS = frozenset([
         "rst", "nrst", "rstn", "n_rst", "rst_n", 
         "reset", "nreset", "resetn", "n_reset", "reset_n"
@@ -436,9 +443,14 @@ class ModuleInstance:
         prefix = Config.PREFIX
         port_list = find_path(self.node, ["kGateInstance", "kPortActualList"])
         add_text_after(port_list, f""",
-                .{prefix}_in({prefix}_in{self.allocated}),
-                .{prefix}_out({prefix}_out{self.allocated}),
-                .{prefix}_wr({prefix}_wr)""")
+                .{prefix}_rd({prefix}_rd),
+                .{prefix}_wr({prefix}_wr),
+                .{prefix}_data_in({prefix}_data_in),
+                .{prefix}_device_idx({prefix}_device_idx),
+                .{prefix}_state_idx({prefix}_state_idx),
+                .{prefix}_base_device_idx({prefix}_base_device_idx + {self.base_idx if self.base_idx is not None else 0}),
+                .{prefix}_data_out({prefix}_data_out),
+                .{prefix}_ack({prefix}_ack)""")
 
     def __repr__(self):
         return f"ModuleInstance({self.module_name} {self.name})"
@@ -475,10 +487,11 @@ class Module:
         return f"Module({self.name})"
 
     def ancestor_count(self) -> int:
-        """Count ancestors with state in hierarchy"""
+        """Get the base device index for this module in the hierarchy"""
         if self._ancestor_count is not None:
             return self._ancestor_count
 
+        # For chunked mode, return the device count from all child instances
         count = 0
         for inst in self.instances:
             if inst.module and inst.module.state_dim:
@@ -648,9 +661,14 @@ class Module:
 
         reg_offset = offset
 
-        # Allocate instances
+        # Assign device indices and allocate instances
+        device_idx = 1  # Start at 1 (relative to current module's base)
         for inst in self.instances:
             offset = inst.allocate(offset)
+            if inst.module and inst.module.state_dim:
+                inst.assign_base_idx(device_idx)
+                # Next instance starts after this one plus all its descendants
+                device_idx += 1 + inst.module.ancestor_count()
         
         self.allocated = True
         if offset != "0":
@@ -685,17 +703,36 @@ class Module:
         port_decl = find_path(self.node, ["kModuleHeader", "kPortDeclarationList"])
         header = find_path(self.node, ["kModuleHeader"])
 
+        # Generate chunked interface ports
+        data_width = Config.DATA_WIDTH - 1
+        device_width = Config.DEVICE_WIDTH - 1  
+        state_width = Config.STATE_WIDTH - 1
+        base_device_idx = self.ancestor_count()
+
         if verilog1995:
-            add_text_after(port_decl, f",\n{prefix}_in, {prefix}_wr, {prefix}_out")
-            s =  f"input [{self.state_dim.end}:{self.state_dim.begin}] {prefix}_in;\n"
+            port_list = f",\n{prefix}_rd, {prefix}_wr, {prefix}_data_in, {prefix}_device_idx, {prefix}_state_idx, {prefix}_base_device_idx, {prefix}_data_out, {prefix}_ack"
+            add_text_after(port_decl, port_list)
+            
+            s =  f"input {prefix}_rd;\n"
             s += f"input {prefix}_wr;\n"
-            s += f"output [{self.state_dim.end}:{self.state_dim.begin}] {prefix}_out;\n"
+            s += f"input [{data_width}:0] {prefix}_data_in;\n"
+            s += f"input [{device_width}:0] {prefix}_device_idx;\n"
+            s += f"input [{state_width}:0] {prefix}_state_idx;\n"
+            s += f"input [{device_width}:0] {prefix}_base_device_idx;\n"
+            s += f"output [{data_width}:0] {prefix}_data_out;\n"
+            s += f"output {prefix}_ack;\n"
             add_text_after(header, s)
         else:
-            s = f",\ninput [{self.state_dim.end}:{self.state_dim.begin}] {prefix}_in, input {prefix}_wr, "
-            s += f"output [{self.state_dim.end}:{self.state_dim.begin}] {prefix}_out"
+            s = f",\ninput {prefix}_rd, input {prefix}_wr, "
+            s += f"input [{data_width}:0] {prefix}_data_in, "
+            s += f"input [{device_width}:0] {prefix}_device_idx, "
+            s += f"input [{state_width}:0] {prefix}_state_idx, "
+            s += f"input [{device_width}:0] {prefix}_base_device_idx, "
+            s += f"output [{data_width}:0] {prefix}_data_out, "
+            s += f"output {prefix}_ack"
             add_text_after(port_decl, s)
 
+        # Add internal declarations
         add_text_after(header, f"genvar {prefix}_idx;")  # used by assignments
 
         for i in self.instances:
