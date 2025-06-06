@@ -315,22 +315,48 @@ class Register:
         self.bit_offset = bit_offset
         self.chunk_count = chunk_count
     
-    def get_bounds_check(self, base_offset: int) -> str:
+    def get_bounds_check(self, base_offset=None) -> str:
         """Generate bounds checking expression for unpacked arrays"""
         if not self.unpacked:
-            return f"auto_ss_state_idx == {base_offset}"
+            base = base_offset if base_offset is not None else self.chunk_index
+            return f"auto_ss_state_idx == {base}"
+        
+        # For arrays, use the chunk_index (which might be symbolic)
+        start_expr = str(self.chunk_index) if hasattr(self, 'chunk_index') else str(base_offset or 0)
         
         if self.is_param_sized():
-            return f"auto_ss_state_idx >= {base_offset} && auto_ss_state_idx < ({base_offset} + {self.unpacked.size})"
+            # Use sympy to simplify the expression
+            end_expr = f"({start_expr} + {self.unpacked.size})"
+            try:
+                start_simplified = str(simplify(start_expr))
+                end_simplified = str(simplify(end_expr))
+                return f"auto_ss_state_idx >= ({start_simplified}) && auto_ss_state_idx < ({end_simplified})"
+            except:
+                return f"auto_ss_state_idx >= ({start_expr}) && auto_ss_state_idx < ({end_expr})"
         else:
             size = int(self.unpacked.size)
-            return f"auto_ss_state_idx >= {base_offset} && auto_ss_state_idx < {base_offset + size}"
+            try:
+                start_simplified = str(simplify(start_expr))
+                end_simplified = str(simplify(f"{start_expr} + {size}"))
+                return f"auto_ss_state_idx >= ({start_simplified}) && auto_ss_state_idx < ({end_simplified})"
+            except:
+                return f"auto_ss_state_idx >= ({start_expr}) && auto_ss_state_idx < ({start_expr} + {size})"
     
-    def get_array_index_expr(self, base_offset: int) -> str:
+    def get_array_index_expr(self, base_offset=None) -> str:
         """Get expression for array indexing"""
         if not self.unpacked:
             raise ValueError(f"Register {self.name} is not an array")
-        return f"auto_ss_state_idx - {base_offset}"
+        
+        # Use the chunk_index (which might be symbolic) if available
+        start_expr = str(self.chunk_index) if hasattr(self, 'chunk_index') else str(base_offset or 0)
+        
+        try:
+            # Try to simplify the index expression
+            index_expr = f"auto_ss_state_idx - ({start_expr})"
+            simplified = str(simplify(index_expr))
+            return simplified
+        except:
+            return f"auto_ss_state_idx - {start_expr}"
     
     def get_data_slice(self) -> str:
         """Get data slice expression for this register"""
@@ -357,6 +383,23 @@ class Register:
         except (ValueError, TypeError):
             # Parameter-sized, use full width
             return f"auto_ss_data_in[{self.packed.size}-1:0]"
+    
+    def get_assignment_target(self) -> str:
+        """Get the left-hand side target for assignments"""
+        if not self.packed:
+            # Single bit register
+            return self.name
+        
+        try:
+            size = int(self.packed.size)
+            if size == 1:
+                return self.name
+            else:
+                return f"{self.name}[{size-1}:0]"
+        except (ValueError, TypeError):
+            # Parameter-sized, use full width
+            return f"{self.name}[{self.packed.size}-1:0]"
+    
 
     def __repr__(self) -> str:
         p = str(self.packed) if self.packed else ""
@@ -439,28 +482,44 @@ class ChunkPacker:
     
     def _allocate_arrays(self, arrays: List[Register], start_chunk: int) -> int:
         """Allocate arrays - each element gets its own chunk"""
-        chunk_idx = start_chunk
+        chunk_idx_expr = str(start_chunk)
         
         for array in arrays:
-            array.allocate_chunk(chunk_idx)
+            # Set the starting chunk index for this array
+            if chunk_idx_expr == str(start_chunk):
+                array.allocate_chunk(start_chunk)
+            else:
+                # For subsequent arrays, store the symbolic expression
+                array.chunk_index = chunk_idx_expr
+            
             if array.is_param_sized():
-                # Parameter-sized arrays need special handling
-                array.chunk_count = None  # Will use parameter expression
+                # Parameter-sized arrays use parameter expression for count
+                array.chunk_count = None  # Will use parameter expression in bounds check
+                # Update chunk_idx_expr to account for this array's size
+                if chunk_idx_expr == str(start_chunk):
+                    chunk_idx_expr = f"({start_chunk} + {array.unpacked.size})"
+                else:
+                    chunk_idx_expr = f"({chunk_idx_expr} + {array.unpacked.size})"
             else:
                 try:
                     array_size = int(array.unpacked.size)
                     array.chunk_count = array_size
+                    # Update chunk index for next array
+                    if chunk_idx_expr == str(start_chunk):
+                        chunk_idx_expr = str(start_chunk + array_size)
+                    else:
+                        chunk_idx_expr = f"({chunk_idx_expr} + {array_size})"
                 except (ValueError, TypeError):
                     array.chunk_count = None
-            
-            # Reserve chunk space for array
-            if array.chunk_count is not None:
-                chunk_idx += array.chunk_count
-            else:
-                # For parameter arrays, reserve 1 chunk but actual count is dynamic
-                chunk_idx += 1
+                    # Assume 1 for unknown size
+                    if chunk_idx_expr == str(start_chunk):
+                        chunk_idx_expr = str(start_chunk + 1)
+                    else:
+                        chunk_idx_expr = f"({chunk_idx_expr} + 1)"
         
-        return chunk_idx
+        # Return a conservative estimate for the next chunk index
+        # For simplicity, we'll track this separately if needed
+        return start_chunk + len(arrays)  # Conservative estimate
 
 
 class Assignment:
@@ -482,17 +541,67 @@ class Assignment:
                 self.reset_signal = signal
                 self.reset_polarity = ev.children[0].text == "posedge"
 
-    def modify_tree(self):
+    def modify_tree(self, use_local_signals: bool = False):
         """Modify the AST to inject state save/restore logic"""
         # Pack registers into chunks
         packer = ChunkPacker()
         chunk_count = packer.pack_registers(self.registers)
         
+        prefix = Config.PREFIX
+        if use_local_signals:
+            output_signal = f"{prefix}_local_data_out"
+            ack_signal = f"{prefix}_local_ack"
+        else:
+            output_signal = f"{prefix}_data_out"
+            ack_signal = f"{prefix}_ack"
+        
         wr_str = self._generate_chunked_write_logic(packer)
-        rd_str = self._generate_chunked_read_logic(packer)
+        rd_str = self._generate_chunked_read_logic(packer, output_signal, ack_signal)
         
         self._inject_write_logic(wr_str)
         self._inject_read_logic(rd_str)
+
+    def _generate_chunked_write_logic_with_global_packer(self, global_packer: ChunkPacker) -> str:
+        """Generate chunked write logic using global packer indices"""
+        prefix = Config.PREFIX
+        wr_str = f"if ({prefix}_wr && device_match) begin\n"
+        
+        # Find chunks that contain registers from this assignment
+        assignment_chunks = {}
+        for chunk_idx, chunk_regs in enumerate(global_packer.chunks):
+            assignment_regs_in_chunk = [reg for reg in chunk_regs if reg in self.registers]
+            if assignment_regs_in_chunk:
+                assignment_chunks[chunk_idx] = assignment_regs_in_chunk
+        
+        if assignment_chunks:
+            wr_str += f"case ({prefix}_state_idx)\n"
+            
+            for chunk_idx, regs_in_chunk in assignment_chunks.items():
+                wr_str += f"{chunk_idx}: begin\n"
+                for reg in regs_in_chunk:
+                    wr_str += f"    {reg.get_assignment_target()} <= {reg.get_data_slice()};\n"
+                wr_str += "end\n"
+            
+            wr_str += "default: begin\n"
+        
+        # Generate array handling for this assignment
+        arrays = [r for r in self.registers if r.unpacked]
+        if arrays:
+            for array in arrays:
+                bounds_check = array.get_bounds_check()
+                array_idx = array.get_array_index_expr()
+                data_slice = array.get_data_slice()
+                
+                wr_str += f"    if ({bounds_check}) begin\n"
+                wr_str += f"        {array.name}[{array_idx}] <= {data_slice};\n"
+                wr_str += f"    end\n"
+        
+        if assignment_chunks:
+            wr_str += "end\n"  # Close default case
+            wr_str += "endcase\n"
+        
+        wr_str += "end"
+        return wr_str
 
     def _generate_chunked_write_logic(self, packer: ChunkPacker) -> str:
         """Generate chunked write logic for state saving"""
@@ -506,7 +615,7 @@ class Assignment:
             for chunk_idx, chunk_regs in enumerate(packer.chunks):
                 wr_str += f"{chunk_idx}: begin\n"
                 for reg in chunk_regs:
-                    wr_str += f"    {reg.name} <= {reg.get_data_slice()};\n"
+                    wr_str += f"    {reg.get_assignment_target()} <= {reg.get_data_slice()};\n"
                 wr_str += "end\n"
             
             wr_str += "default: begin\n"
@@ -515,8 +624,8 @@ class Assignment:
         arrays = [r for r in self.registers if r.unpacked]
         if arrays:
             for array in arrays:
-                bounds_check = array.get_bounds_check(array.chunk_index)
-                array_idx = array.get_array_index_expr(array.chunk_index)
+                bounds_check = array.get_bounds_check()
+                array_idx = array.get_array_index_expr()
                 data_slice = array.get_data_slice()
                 
                 wr_str += f"    if ({bounds_check}) begin\n"
@@ -530,12 +639,18 @@ class Assignment:
         wr_str += "end"
         return wr_str
     
-    def _generate_chunked_read_logic(self, packer: ChunkPacker) -> str:
+    def _generate_chunked_read_logic(self, packer: ChunkPacker, output_signal: str = None, ack_signal: str = None) -> str:
         """Generate chunked read logic for state restoration"""
         prefix = Config.PREFIX
+        if output_signal is None:
+            output_signal = f"{prefix}_data_out"
+        if ack_signal is None:
+            ack_signal = f"{prefix}_ack"
+        
         rd_str = f"always_comb begin\n"
-        rd_str += f"    {prefix}_data_out = 32'h0;\n"
-        rd_str += f"    if (device_match) begin\n"
+        rd_str += f"    {output_signal} = 32'h0;\n"
+        rd_str += f"    {ack_signal} = 1'b0;\n"
+        rd_str += f"    if ({prefix}_rd && device_match) begin\n"
         
         # Generate packed register chunks (use case statements)
         if packer.chunks:
@@ -547,13 +662,22 @@ class Assignment:
                 # Build concatenation expression
                 if len(chunk_regs) == 1:
                     reg = chunk_regs[0]
-                    rd_str += f"            {prefix}_data_out = {reg.name};\n"
+                    if reg.packed:
+                        # Use explicit vector slice for packed registers
+                        rd_str += f"            {output_signal}[{reg.packed.size}-1:0] = {reg.name};\n"
+                    else:
+                        # Single bit register
+                        rd_str += f"            {output_signal}[0] = {reg.name};\n"
+                    rd_str += f"            {ack_signal} = 1'b1;\n"
                 else:
                     # Multiple registers in chunk - build concatenation
                     concat_parts = []
+                    total_width = 0
                     for reg in sorted(chunk_regs, key=lambda r: r.bit_offset or 0, reverse=True):
                         concat_parts.append(reg.name)
-                    rd_str += f"            {prefix}_data_out = {{{', '.join(concat_parts)}}};\n"
+                        total_width += reg.get_packed_size()
+                    rd_str += f"            {output_signal}[{total_width-1}:0] = {{{', '.join(concat_parts)}}};\n"
+                    rd_str += f"            {ack_signal} = 1'b1;\n"
                 
                 rd_str += f"        end\n"
             
@@ -563,14 +687,15 @@ class Assignment:
         arrays = [r for r in self.registers if r.unpacked]
         if arrays:
             for array in arrays:
-                bounds_check = array.get_bounds_check(array.chunk_index)
-                array_idx = array.get_array_index_expr(array.chunk_index)
+                bounds_check = array.get_bounds_check()
+                array_idx = array.get_array_index_expr()
                 
                 rd_str += f"            if ({bounds_check}) begin\n"
                 if array.packed:
-                    rd_str += f"                {prefix}_data_out[{array.packed.size}-1:0] = {array.name}[{array_idx}];\n"
+                    rd_str += f"                {output_signal}[{array.packed.size}-1:0] = {array.name}[{array_idx}];\n"
                 else:
-                    rd_str += f"                {prefix}_data_out[0] = {array.name}[{array_idx}];\n"
+                    rd_str += f"                {output_signal}[0] = {array.name}[{array_idx}];\n"
+                rd_str += f"                {ack_signal} = 1'b1;\n"
                 rd_str += f"            end\n"
         
         if packer.chunks:
@@ -665,12 +790,19 @@ class ModuleInstance:
             return str(self.allocated.size)
         return "0"
 
-    def modify_tree(self):
+    def modify_tree(self, use_instance_signals: bool = False):
         """Modify AST to add state ports"""
         if not self.allocated:
             return
             
         prefix = Config.PREFIX
+        if use_instance_signals:
+            data_out_signal = f"{prefix}_{self.name}_data_out"
+            ack_signal = f"{prefix}_{self.name}_ack"
+        else:
+            data_out_signal = f"{prefix}_data_out"
+            ack_signal = f"{prefix}_ack"
+            
         port_list = find_path(self.node, ["kGateInstance", "kPortActualList"])
         add_text_after(port_list, f""",
                 .{prefix}_rd({prefix}_rd),
@@ -679,8 +811,8 @@ class ModuleInstance:
                 .{prefix}_device_idx({prefix}_device_idx),
                 .{prefix}_state_idx({prefix}_state_idx),
                 .{prefix}_base_device_idx({prefix}_base_device_idx + {self.base_idx if self.base_idx is not None else 0}),
-                .{prefix}_data_out({prefix}_data_out),
-                .{prefix}_ack({prefix}_ack)""")
+                .{prefix}_data_out({data_out_signal}),
+                .{prefix}_ack({ack_signal})""")
 
     def __repr__(self):
         return f"ModuleInstance({self.module_name} {self.name})"
@@ -951,8 +1083,8 @@ class Module:
             s += f"input [{device_width}:0] {prefix}_device_idx;\n"
             s += f"input [{state_width}:0] {prefix}_state_idx;\n"
             s += f"input [{device_width}:0] {prefix}_base_device_idx;\n"
-            s += f"output [{data_width}:0] {prefix}_data_out;\n"
-            s += f"output {prefix}_ack;\n"
+            s += f"output logic [{data_width}:0] {prefix}_data_out;\n"
+            s += f"output logic {prefix}_ack;\n"
             add_text_after(header, s)
         else:
             s = f",\ninput {prefix}_rd, input {prefix}_wr, "
@@ -960,30 +1092,169 @@ class Module:
             s += f"input [{device_width}:0] {prefix}_device_idx, "
             s += f"input [{state_width}:0] {prefix}_state_idx, "
             s += f"input [{device_width}:0] {prefix}_base_device_idx, "
-            s += f"output [{data_width}:0] {prefix}_data_out, "
-            s += f"output {prefix}_ack"
+            s += f"output logic [{data_width}:0] {prefix}_data_out, "
+            s += f"output logic {prefix}_ack"
             add_text_after(port_decl, s)
 
         # Add internal declarations
         add_text_after(header, f"genvar {prefix}_idx;")  # used by assignments
         
-        # Add device matching logic
-        ancestor_count = self.ancestor_count()
-        if ancestor_count > 0:
-            # Module has sub-instances, check range
-            add_text_after(header, f"wire device_match = ({prefix}_device_idx >= {prefix}_base_device_idx) && ({prefix}_device_idx < {prefix}_base_device_idx + {ancestor_count + 1});")
-        else:
-            # Simple module, exact match
-            add_text_after(header, f"wire device_match = ({prefix}_device_idx == {prefix}_base_device_idx);")
+        # Add device matching logic - always exact match
+        add_text_after(header, f"wire device_match = ({prefix}_device_idx == {prefix}_base_device_idx);")
         
-        # Add acknowledgment logic
-        add_text_after(header, f"assign {prefix}_ack = {prefix}_wr && device_match;")
+        # Add data output and acknowledgment logic
+        has_registers = len(self.registers) > 0
+        has_instances = len([i for i in self.instances if i.module and i.module.state_dim]) > 0
+        
+        if has_instances:
+            # Module has sub-instances - need to declare intermediate signals and mux
+            instance_signals = []
+            for i, inst in enumerate(self.instances):
+                if inst.module and inst.module.state_dim:
+                    instance_signals.append(f"{prefix}_{inst.name}")
+            
+            # Deduplicate signal names (can happen with conditional compilation)
+            instance_signals = list(dict.fromkeys(instance_signals))
+            
+            # Declare intermediate signals
+            for sig in instance_signals:
+                add_text_after(header, f"wire [{data_width}:0] {sig}_data_out;")
+                add_text_after(header, f"wire {sig}_ack;")
+            
+            # Generate muxing logic for data_out
+            if has_registers:
+                # Module has both registers and sub-instances
+                add_text_after(header, f"logic [{data_width}:0] {prefix}_local_data_out;")
+                add_text_after(header, f"logic {prefix}_local_ack;")
+                mux_signals = [f"{prefix}_local_data_out"] + [f"{sig}_data_out" for sig in instance_signals]
+                ack_signals = [f"{prefix}_local_ack"] + [f"{sig}_ack" for sig in instance_signals]
+            else:
+                # Module has only sub-instances
+                mux_signals = [f"{sig}_data_out" for sig in instance_signals]
+                ack_signals = [f"{sig}_ack" for sig in instance_signals]
+            
+            # OR together all data_out signals
+            add_text_after(header, f"assign {prefix}_data_out = {' | '.join(mux_signals)};")
+            # OR together all ack signals  
+            add_text_after(header, f"assign {prefix}_ack = {' | '.join(ack_signals)};")
+            
+        else:
+            # Module has only registers - ACK generated in always_comb
+            if not has_registers:
+                # No state at all - provide default outputs
+                add_text_after(header, f"assign {prefix}_ack = 1'b0;")
+                add_text_after(header, f"assign {prefix}_data_out = {Config.DATA_WIDTH}'h0;")
 
         for i in self.instances:
-            i.modify_tree()
+            i.modify_tree(use_instance_signals=has_instances)
 
-        for a in self.assignments:
-            a.modify_tree()
+        # Generate combined read/write logic for all assignments
+        self._generate_combined_savestate_logic(has_instances)
+
+    def _generate_combined_savestate_logic(self, has_instances: bool):
+        """Generate a single combined always_comb block for all assignments"""
+        if not self.assignments:
+            return
+            
+        prefix = Config.PREFIX
+        if has_instances:
+            output_signal = f"{prefix}_local_data_out"
+            ack_signal = f"{prefix}_local_ack"
+        else:
+            output_signal = f"{prefix}_data_out"
+            ack_signal = f"{prefix}_ack"
+        
+        # Pack all registers from all assignments together with global indexing
+        all_registers = []
+        for assignment in self.assignments:
+            all_registers.extend(assignment.registers)
+        
+        if not all_registers:
+            return
+            
+        # Pack registers into chunks with global indexing
+        global_packer = ChunkPacker()
+        chunk_count = global_packer.pack_registers(all_registers)
+        
+        # Generate write logic for each assignment using global indices
+        for assignment in self.assignments:
+            if assignment.registers:
+                wr_str = assignment._generate_chunked_write_logic_with_global_packer(global_packer)
+                assignment._inject_write_logic(wr_str)
+        
+        # Generate single combined read logic
+        rd_str = self._generate_combined_read_logic(global_packer, output_signal, ack_signal)
+        
+        # Inject the combined read logic after the last assignment
+        if self.assignments:
+            add_text_after(self.assignments[-1].always, rd_str)
+    
+    def _generate_combined_read_logic(self, packer: ChunkPacker, output_signal: str, ack_signal: str) -> str:
+        """Generate combined read logic for all assignments"""
+        prefix = Config.PREFIX
+        rd_str = f"always_comb begin\n"
+        rd_str += f"    {output_signal} = 32'h0;\n"
+        rd_str += f"    {ack_signal} = 1'b0;\n"
+        rd_str += f"    if ({prefix}_rd && device_match) begin\n"
+        
+        # Generate packed register chunks (use case statements)
+        if packer.chunks:
+            rd_str += f"        case ({prefix}_state_idx)\n"
+            
+            for chunk_idx, chunk_regs in enumerate(packer.chunks):
+                rd_str += f"        {chunk_idx}: begin\n"
+                
+                # Build concatenation expression
+                if len(chunk_regs) == 1:
+                    reg = chunk_regs[0]
+                    if reg.packed:
+                        # Use explicit vector slice for packed registers
+                        rd_str += f"            {output_signal}[{reg.packed.size}-1:0] = {reg.name};\n"
+                    else:
+                        # Single bit register
+                        rd_str += f"            {output_signal}[0] = {reg.name};\n"
+                    rd_str += f"            {ack_signal} = 1'b1;\n"
+                else:
+                    # Multiple registers in chunk - build concatenation
+                    concat_parts = []
+                    total_width = 0
+                    for reg in sorted(chunk_regs, key=lambda r: r.bit_offset or 0, reverse=True):
+                        concat_parts.append(reg.name)
+                        total_width += reg.get_packed_size()
+                    rd_str += f"            {output_signal}[{total_width-1}:0] = {{{', '.join(concat_parts)}}};\n"
+                    rd_str += f"            {ack_signal} = 1'b1;\n"
+                
+                rd_str += f"        end\n"
+            
+            rd_str += f"        default: begin\n"
+        
+        # Generate array handling (use if/else for parameters)
+        all_registers = []
+        for assignment in self.assignments:
+            all_registers.extend(assignment.registers)
+        arrays = [r for r in all_registers if r.unpacked]
+        
+        if arrays:
+            for array in arrays:
+                bounds_check = array.get_bounds_check()
+                array_idx = array.get_array_index_expr()
+                
+                rd_str += f"            if ({bounds_check}) begin\n"
+                if array.packed:
+                    rd_str += f"                {output_signal}[{array.packed.size}-1:0] = {array.name}[{array_idx}];\n"
+                else:
+                    rd_str += f"                {output_signal}[0] = {array.name}[{array_idx}];\n"
+                rd_str += f"                {ack_signal} = 1'b1;\n"
+                rd_str += f"            end\n"
+        
+        if packer.chunks:
+            rd_str += f"        end\n"  # Close default case
+            rd_str += f"        endcase\n"
+        
+        rd_str += f"    end\n"
+        rd_str += f"end\n"
+        
+        return rd_str
 
     def output_module(self, fp, enable_format: bool = True):
         """Output modified module to file"""
