@@ -1357,7 +1357,140 @@ def parse_args():
         action='store_true',
         help='Disable output formatting'
     )
+    parser.add_argument(
+        '--generate-csv',
+        type=str,
+        help='Generate CSV mapping file with device/state indices'
+    )
     return parser.parse_args()
+
+
+def generate_csv_mapping(root_module: 'Module', csv_path: str):
+    """Generate CSV mapping of device/state indices to modules and data"""
+    import csv
+    
+    rows = []
+    
+    def collect_mappings(module: 'Module', base_device_idx: int = 0):
+        """Recursively collect mappings from module hierarchy"""
+        
+        # Add mappings for this module's registers
+        if module.registers:
+            # Pack registers to get their chunk indices
+            packer = ChunkPacker()
+            chunk_count = packer.pack_registers(module.registers)
+            
+            # Add packed register chunks
+            for chunk_idx, chunk_regs in enumerate(packer.chunks):
+                reg_names = [reg.name for reg in chunk_regs]
+                reg_types = []
+                for reg in chunk_regs:
+                    if reg.packed:
+                        reg_types.append(f"reg[{reg.packed.size}-1:0]")
+                    else:
+                        reg_types.append("reg")
+                
+                rows.append([
+                    base_device_idx,
+                    chunk_idx,
+                    module.name,
+                    "packed_registers",
+                    f"{', '.join(reg_names)}",
+                    f"{', '.join(reg_types)}",
+                    f"Packed registers: {', '.join(reg_names)}"
+                ])
+            
+            # Add array mappings
+            arrays = [r for r in module.registers if r.unpacked]
+            for array in arrays:
+                if hasattr(array, 'chunk_index'):
+                    start_idx = array.chunk_index
+                    if array.is_param_sized():
+                        size_desc = f"{array.unpacked.size} elements"
+                        end_desc = f"start+{array.unpacked.size}-1"
+                    else:
+                        try:
+                            size = int(array.unpacked.size)
+                            size_desc = f"{size} elements"
+                            end_desc = f"{start_idx + size - 1}"
+                        except:
+                            size_desc = "unknown size"
+                            end_desc = "unknown"
+                    
+                    array_type = f"reg"
+                    if array.packed:
+                        array_type += f"[{array.packed.size}-1:0]"
+                    array_type += f"[{array.unpacked.size}-1:0]"
+                    
+                    rows.append([
+                        base_device_idx,
+                        f"{start_idx}:{end_desc}",
+                        module.name,
+                        "array",
+                        array.name,
+                        array_type,
+                        f"Array with {size_desc}"
+                    ])
+        
+        # Add mappings for sub-instances
+        for inst in module.instances:
+            if inst.module and inst.module.state_dim and inst.base_idx is not None:
+                instance_device_idx = base_device_idx + inst.base_idx
+                
+                # Add entry for the instance itself
+                rows.append([
+                    instance_device_idx,
+                    "0+",
+                    f"{module.name}.{inst.name}",
+                    "module_instance",
+                    inst.module_name,
+                    "module",
+                    f"Instance of {inst.module_name}"
+                ])
+                
+                # Recursively collect from sub-module
+                collect_mappings(inst.module, instance_device_idx)
+    
+    # Start collection from root
+    collect_mappings(root_module)
+    
+    # Sort by device_idx, then by state_idx
+    def sort_key(row):
+        device_idx = row[0]
+        state_idx_str = str(row[1])
+        
+        # Handle range notation like "1:8"
+        if ':' in state_idx_str:
+            start_part = state_idx_str.split(':')[0]
+            try:
+                return (device_idx, int(start_part))
+            except:
+                return (device_idx, 1000000)  # Put symbolic ranges at the end
+        elif '+' in state_idx_str:
+            return (device_idx, 1000000)  # Put range indicators at the end
+        else:
+            try:
+                return (device_idx, int(state_idx_str))
+            except:
+                return (device_idx, 1000000)
+    
+    rows.sort(key=sort_key)
+    
+    # Write CSV file
+    with open(csv_path, 'w', newline='', encoding='utf-8') as csvfile:
+        writer = csv.writer(csvfile)
+        writer.writerow([
+            'Device_Index',
+            'State_Index',
+            'Module_Path',
+            'Data_Type',
+            'Register_Name',
+            'Verilog_Type',
+            'Description'
+        ])
+        writer.writerows(rows)
+    
+    logger.info(f"Generated CSV mapping with {len(rows)} entries: {csv_path}")
 
 
 def main():
@@ -1406,6 +1539,10 @@ def main():
             module.print_allocation()
             module.output_module(out_fp, enable_format=not args.no_format)
             visited.add(module)
+
+        # Generate CSV mapping if requested
+        if args.generate_csv:
+            generate_csv_mapping(root_module, args.generate_csv)
 
     except StateModuleError as e:
         logger.error(str(e))

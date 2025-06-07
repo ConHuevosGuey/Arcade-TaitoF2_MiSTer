@@ -38,8 +38,8 @@ set_global_assignment -name SYSTEMVERILOG_FILE rtl/rom_cache.sv
 
 if (1) {
     set_global_assignment -name VERILOG_MACRO "USE_AUTO_SS=1"
-    set_global_assignment -name VERILOG_FILE ./rtl/tv80_auto_ss.v
-    set_global_assignment -name VERILOG_FILE ./rtl/jt10_auto_ss.v
+    set_global_assignment -name SYSTEMVERILOG_FILE ./rtl/tv80_auto_ss.sv
+    set_global_assignment -name SYSTEMVERILOG_FILE ./rtl/jt10_auto_ss.sv
 } else {
     set_global_assignment -name VERILOG_FILE ./rtl/tv80/tv80s.v
     set_global_assignment -name VERILOG_FILE ./rtl/tv80/tv80_alu.v

@@ -95,10 +95,10 @@ picorom:
 	$(MAKE) -j8 -C testroms TARGET=driftout_test picorom
 
 
-rtl/jt10_auto_ss.v:
-	$(PYTHON) util/state_module.py jt10 rtl/jt10_auto_ss.v rtl/jt12/jt49/hdl/*.v rtl/jt12/hdl/adpcm/*.v rtl/jt12/hdl/*.v rtl/jt12/hdl/mixer/*.v
+rtl/jt10_auto_ss.sv:
+	$(PYTHON) util/state_module.py --generate-csv docs/jt10_mapping.csv jt10 rtl/jt10_auto_ss.sv rtl/jt12/jt49/hdl/*.v rtl/jt12/hdl/adpcm/*.v rtl/jt12/hdl/*.v rtl/jt12/hdl/mixer/*.v
 
-rtl/tv80_auto_ss.v:
-	$(PYTHON) util/state_module.py tv80s rtl/tv80_auto_ss.v rtl/tv80/*.v
+rtl/tv80_auto_ss.sv:
+	$(PYTHON) util/state_module.py --generate-csv docs/tv80_mapping.csv tv80s rtl/tv80_auto_ss.sv rtl/tv80/*.v
 
-.PHONY: sim sim/run sim/test mister debug picorom rtl/jt10_auto_ss.v rtl/tv80_auto_ss.v
+.PHONY: sim sim/run sim/test mister debug picorom rtl/jt10_auto_ss.sv rtl/tv80_auto_ss.sv

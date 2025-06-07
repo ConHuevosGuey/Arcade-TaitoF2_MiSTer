@@ -3594,9 +3594,9 @@ module jt12_sh #(
 
   genvar i;
   generate
-	for (i=0; i < width; i=i+1) begin: bit_shifter
-		assign drop[i] = bits[i][stages-1];
-	end
+    for (i = 0; i < width; i = i + 1) begin : bit_shifter
+      assign drop[i] = bits[i][stages-1];
+    end
   endgenerate
 
 endmodule
