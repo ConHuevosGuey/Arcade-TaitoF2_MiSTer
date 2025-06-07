@@ -2681,16 +2681,28 @@ module tv80_reg (  /*AUTOARG*/
     CEN,
     WEH,
     WEL,
-    auto_ss_in,
+    auto_ss_rd,
     auto_ss_wr,
-    auto_ss_out
+    auto_ss_data_in,
+    auto_ss_device_idx,
+    auto_ss_state_idx,
+    auto_ss_base_device_idx,
+    auto_ss_data_out,
+    auto_ss_ack
 
 );
+  wire device_match = (auto_ss_device_idx == auto_ss_base_device_idx);
+
   genvar auto_ss_idx;
 
-  input [127:0] auto_ss_in;
+  input auto_ss_rd;
   input auto_ss_wr;
-  output [127:0] auto_ss_out;
+  input [31:0] auto_ss_data_in;
+  input [7:0] auto_ss_device_idx;
+  input [15:0] auto_ss_state_idx;
+  input [7:0] auto_ss_base_device_idx;
+  output logic [31:0] auto_ss_data_out;
+  output logic auto_ss_ack;
 
 
   input [2:0] AddrC;
@@ -2717,27 +2729,31 @@ module tv80_reg (  /*AUTOARG*/
         if (WEL) RegsL[AddrA] <= DIL;
       end
     end
-    if (auto_ss_wr) begin
-      integer auto_ss_idx;
-      for (auto_ss_idx = 0; auto_ss_idx < (8); auto_ss_idx = auto_ss_idx + 1) begin
-        RegsH[auto_ss_idx] <= auto_ss_in[8*auto_ss_idx+:8];
+    if (auto_ss_wr && device_match) begin
+      if (auto_ss_state_idx >= (0) && auto_ss_state_idx < (8)) begin
+        RegsH[auto_ss_state_idx] <= auto_ss_data_in[7:0];
       end
-      for (auto_ss_idx = 0; auto_ss_idx < (8); auto_ss_idx = auto_ss_idx + 1) begin
-        RegsL[auto_ss_idx] <= auto_ss_in[8*auto_ss_idx+64+:8];
+      if (auto_ss_state_idx >= (8) && auto_ss_state_idx < (16)) begin
+        RegsL[auto_ss_state_idx-8] <= auto_ss_data_in[7:0];
       end
     end
   end
 
 
-  generate
-    for (auto_ss_idx = 0; auto_ss_idx < (8); auto_ss_idx = auto_ss_idx + 1) begin : blk_asg_RegsH
-      assign auto_ss_out[8*auto_ss_idx+:8] = RegsH[auto_ss_idx];
+  always_comb begin
+    auto_ss_data_out = 32'h0;
+    auto_ss_ack      = 1'b0;
+    if (auto_ss_rd && device_match) begin
+      if (auto_ss_state_idx >= (0) && auto_ss_state_idx < (8)) begin
+        auto_ss_data_out[8-1:0] = RegsH[auto_ss_state_idx];
+        auto_ss_ack             = 1'b1;
+      end
+      if (auto_ss_state_idx >= (8) && auto_ss_state_idx < (16)) begin
+        auto_ss_data_out[8-1:0] = RegsL[auto_ss_state_idx-8];
+        auto_ss_ack             = 1'b1;
+      end
     end
-    for (auto_ss_idx = 0; auto_ss_idx < (8); auto_ss_idx = auto_ss_idx + 1) begin : blk_asg_RegsL
-      assign auto_ss_out[8*auto_ss_idx+64+:8] = RegsL[auto_ss_idx];
-    end
-
-  endgenerate
+  end
 
 
 
@@ -2798,16 +2814,40 @@ module tv80_core (  /*AUTOARG*/
     busrq_n,
     dinst,
     di,
-    auto_ss_in,
+    auto_ss_rd,
     auto_ss_wr,
-    auto_ss_out
+    auto_ss_data_in,
+    auto_ss_device_idx,
+    auto_ss_state_idx,
+    auto_ss_base_device_idx,
+    auto_ss_data_out,
+    auto_ss_ack
 
 );
+  assign auto_ss_ack      = auto_ss_local_ack | auto_ss_i_reg_ack;
+
+  assign auto_ss_data_out = auto_ss_local_data_out | auto_ss_i_reg_data_out;
+
+  logic        auto_ss_local_ack;
+
+  logic [31:0] auto_ss_local_data_out;
+
+  wire         auto_ss_i_reg_ack;
+
+  wire  [31:0] auto_ss_i_reg_data_out;
+
+  wire         device_match = (auto_ss_device_idx == auto_ss_base_device_idx);
+
   genvar auto_ss_idx;
 
-  input [345:0] auto_ss_in;
+  input auto_ss_rd;
   input auto_ss_wr;
-  output [345:0] auto_ss_out;
+  input [31:0] auto_ss_data_in;
+  input [7:0] auto_ss_device_idx;
+  input [15:0] auto_ss_state_idx;
+  input [7:0] auto_ss_base_device_idx;
+  output logic [31:0] auto_ss_data_out;
+  output logic auto_ss_ack;
 
 
   // Beginning of automatic inputs (from unused autoinst inputs)
@@ -3168,32 +3208,49 @@ module tv80_core (  /*AUTOARG*/
       Save_ALU_r    <= 1'b0;
       PreserveC_r   <= 1'b0;
       XY_Ind        <= 1'b0;
-    end else if (auto_ss_wr) begin
-      integer auto_ss_idx;
-      A             <= auto_ss_in[1+:16];
-      ACC           <= auto_ss_in[25+:8];
-      ALU_Op_r      <= auto_ss_in[206+:4];
-      Alternate     <= auto_ss_in[106];
-      Ap            <= auto_ss_in[41+:8];
-      Arith16_r     <= auto_ss_in[204];
-      BTR_r         <= auto_ss_in[179];
-      F             <= auto_ss_in[33+:8];
-      Fp            <= auto_ss_in[49+:8];
-      I             <= auto_ss_in[57+:8];
-      IR            <= auto_ss_in[123+:8];
-      ISet          <= auto_ss_in[131+:2];
-      IStatus       <= auto_ss_in[170+:2];
-      PC            <= auto_ss_in[81+:16];
-      PreserveC_r   <= auto_ss_in[211];
-      Read_To_Reg_r <= auto_ss_in[199+:5];
-      SP            <= auto_ss_in[65+:16];
-      Save_ALU_r    <= auto_ss_in[210];
-      TmpAddr       <= auto_ss_in[107+:16];
-      XY_Ind        <= auto_ss_in[177];
-      XY_State      <= auto_ss_in[172+:2];
-      Z16_r         <= auto_ss_in[205];
-      dout          <= auto_ss_in[17+:8];
-      mcycles       <= auto_ss_in[212+:3];
+    end else if (auto_ss_wr && device_match) begin
+      case (auto_ss_state_idx)
+        0: begin
+          A[15:0]  <= auto_ss_data_in[15:0];
+          PC[15:0] <= auto_ss_data_in[31:16];
+        end
+        1: begin
+          SP[15:0]      <= auto_ss_data_in[15:0];
+          TmpAddr[15:0] <= auto_ss_data_in[31:16];
+        end
+        2: begin
+          ACC[7:0] <= auto_ss_data_in[23:16];
+          Ap[7:0]  <= auto_ss_data_in[31:24];
+        end
+        3: begin
+          F[7:0]  <= auto_ss_data_in[7:0];
+          Fp[7:0] <= auto_ss_data_in[15:8];
+          I[7:0]  <= auto_ss_data_in[23:16];
+          IR[7:0] <= auto_ss_data_in[31:24];
+        end
+        4: begin
+          dout[7:0] <= auto_ss_data_in[7:0];
+        end
+        5: begin
+          Read_To_Reg_r[4:0] <= auto_ss_data_in[11:7];
+          ALU_Op_r[3:0]      <= auto_ss_data_in[15:12];
+          mcycles[2:0]       <= auto_ss_data_in[18:16];
+        end
+        6: begin
+          ISet[1:0]     <= auto_ss_data_in[1:0];
+          IStatus[1:0]  <= auto_ss_data_in[3:2];
+          XY_State[1:0] <= auto_ss_data_in[5:4];
+          Alternate     <= auto_ss_data_in[6];
+          Arith16_r     <= auto_ss_data_in[7];
+          BTR_r         <= auto_ss_data_in[8];
+          PreserveC_r   <= auto_ss_data_in[9];
+          Save_ALU_r    <= auto_ss_data_in[10];
+          XY_Ind        <= auto_ss_data_in[11];
+          Z16_r         <= auto_ss_data_in[12];
+        end
+        default: begin
+        end
+      endcase
     end else begin
 
       if (ClkEn == 1'b1) begin
@@ -3542,32 +3599,6 @@ module tv80_core (  /*AUTOARG*/
       end  // if (ClkEn == 1'b1 )         
     end  // else: !if(reset_n == 1'b0 )
   end
-  assign auto_ss_out[1+:16]   = A;
-  assign auto_ss_out[25+:8]   = ACC;
-  assign auto_ss_out[206+:4]  = ALU_Op_r;
-  assign auto_ss_out[106]     = Alternate;
-  assign auto_ss_out[41+:8]   = Ap;
-  assign auto_ss_out[204]     = Arith16_r;
-  assign auto_ss_out[179]     = BTR_r;
-  assign auto_ss_out[33+:8]   = F;
-  assign auto_ss_out[49+:8]   = Fp;
-  assign auto_ss_out[57+:8]   = I;
-  assign auto_ss_out[123+:8]  = IR;
-  assign auto_ss_out[131+:2]  = ISet;
-  assign auto_ss_out[170+:2]  = IStatus;
-  assign auto_ss_out[81+:16]  = PC;
-  assign auto_ss_out[211]     = PreserveC_r;
-  assign auto_ss_out[199+:5]  = Read_To_Reg_r;
-  assign auto_ss_out[65+:16]  = SP;
-  assign auto_ss_out[210]     = Save_ALU_r;
-  assign auto_ss_out[107+:16] = TmpAddr;
-  assign auto_ss_out[177]     = XY_Ind;
-  assign auto_ss_out[172+:2]  = XY_State;
-  assign auto_ss_out[205]     = Z16_r;
-  assign auto_ss_out[17+:8]   = dout;
-  assign auto_ss_out[212+:3]  = mcycles;
-
-
 
 
   //-------------------------------------------------------------------------
@@ -3616,22 +3647,24 @@ module tv80_core (  /*AUTOARG*/
       end
 
     end
-    if (auto_ss_wr) begin
-      integer auto_ss_idx;
-      IncDecZ    <= auto_ss_in[182];
-      RegAddrA_r <= auto_ss_in[97+:3];
-      RegAddrB_r <= auto_ss_in[100+:3];
-      RegAddrC   <= auto_ss_in[103+:3];
-      RegBusA_r  <= auto_ss_in[133+:16];
+    if (auto_ss_wr && device_match) begin
+      case (auto_ss_state_idx)
+        2: begin
+          RegBusA_r[15:0] <= auto_ss_data_in[15:0];
+        end
+        5: begin
+          RegAddrA_r[2:0] <= auto_ss_data_in[21:19];
+          RegAddrB_r[2:0] <= auto_ss_data_in[24:22];
+          RegAddrC[2:0]   <= auto_ss_data_in[27:25];
+        end
+        6: begin
+          IncDecZ <= auto_ss_data_in[13];
+        end
+        default: begin
+        end
+      endcase
     end
   end
-
-
-  assign auto_ss_out[182]     = IncDecZ;
-  assign auto_ss_out[97+:3]   = RegAddrA_r;
-  assign auto_ss_out[100+:3]  = RegAddrB_r;
-  assign auto_ss_out[103+:3]  = RegAddrC;
-  assign auto_ss_out[133+:16] = RegBusA_r;
 
   // always @ (posedge clk)
 
@@ -3708,24 +3741,29 @@ module tv80_core (  /*AUTOARG*/
   end
 
   tv80_reg i_reg (
-      .clk        (clk),
-      .CEN        (ClkEn),
-      .WEH        (RegWEH),
-      .WEL        (RegWEL),
-      .AddrA      (RegAddrA),
-      .AddrB      (RegAddrB),
-      .AddrC      (RegAddrC),
-      .DIH        (RegDIH),
-      .DIL        (RegDIL),
-      .DOAH       (RegBusA[15:8]),
-      .DOAL       (RegBusA[7:0]),
-      .DOBH       (RegBusB[15:8]),
-      .DOBL       (RegBusB[7:0]),
-      .DOCH       (RegBusC[15:8]),
-      .DOCL       (RegBusC[7:0]),
-      .auto_ss_in (auto_ss_in[218+:128]),
-      .auto_ss_out(auto_ss_out[218+:128]),
-      .auto_ss_wr (auto_ss_wr)
+      .clk                    (clk),
+      .CEN                    (ClkEn),
+      .WEH                    (RegWEH),
+      .WEL                    (RegWEL),
+      .AddrA                  (RegAddrA),
+      .AddrB                  (RegAddrB),
+      .AddrC                  (RegAddrC),
+      .DIH                    (RegDIH),
+      .DIL                    (RegDIL),
+      .DOAH                   (RegBusA[15:8]),
+      .DOAL                   (RegBusA[7:0]),
+      .DOBH                   (RegBusB[15:8]),
+      .DOBL                   (RegBusB[7:0]),
+      .DOCH                   (RegBusC[15:8]),
+      .DOCL                   (RegBusC[7:0]),
+      .auto_ss_rd             (auto_ss_rd),
+      .auto_ss_wr             (auto_ss_wr),
+      .auto_ss_data_in        (auto_ss_data_in),
+      .auto_ss_device_idx     (auto_ss_device_idx),
+      .auto_ss_state_idx      (auto_ss_state_idx),
+      .auto_ss_base_device_idx(auto_ss_base_device_idx + 1),
+      .auto_ss_data_out       (auto_ss_i_reg_data_out),
+      .auto_ss_ack            (auto_ss_i_reg_ack)
 
   );
 
@@ -3776,16 +3814,17 @@ module tv80_core (  /*AUTOARG*/
         endcase
       end
     end
-    if (auto_ss_wr) begin
-      integer auto_ss_idx;
-      BusA <= auto_ss_in[191+:8];
-      BusB <= auto_ss_in[183+:8];
+    if (auto_ss_wr && device_match) begin
+      case (auto_ss_state_idx)
+        4: begin
+          BusA[7:0] <= auto_ss_data_in[15:8];
+          BusB[7:0] <= auto_ss_data_in[23:16];
+        end
+        default: begin
+        end
+      endcase
     end
   end
-
-
-  assign auto_ss_out[191+:8] = BusA;
-  assign auto_ss_out[183+:8] = BusB;
 
 
 
@@ -3795,7 +3834,7 @@ module tv80_core (  /*AUTOARG*/
   //
   //-------------------------------------------------------------------------
   // !`ifdef TV80_REFRESH
-  assign rfsh_n              = 1'b1;
+  assign rfsh_n = 1'b1;
 
 
   always @(/*AUTOSENSE*/BusAck or Halt_FF or I_DJNZ or IntCycle
@@ -3824,12 +3863,17 @@ module tv80_core (  /*AUTOARG*/
       INT_s    <= 1'b0;
       NMI_s    <= 1'b0;
       Oldnmi_n <= 1'b0;
-    end else if (auto_ss_wr) begin
-      integer auto_ss_idx;
-      BusReq_s <= auto_ss_in[166];
-      INT_s    <= auto_ss_in[169];
-      NMI_s    <= auto_ss_in[168];
-      Oldnmi_n <= auto_ss_in[217];
+    end else if (auto_ss_wr && device_match) begin
+      case (auto_ss_state_idx)
+        6: begin
+          BusReq_s <= auto_ss_data_in[14];
+          INT_s    <= auto_ss_data_in[15];
+          NMI_s    <= auto_ss_data_in[16];
+          Oldnmi_n <= auto_ss_data_in[17];
+        end
+        default: begin
+        end
+      endcase
     end else begin
       if (cen == 1'b1) begin
         BusReq_s <= ~busrq_n;
@@ -3843,12 +3887,6 @@ module tv80_core (  /*AUTOARG*/
       end
     end
   end
-  assign auto_ss_out[166] = BusReq_s;
-  assign auto_ss_out[169] = INT_s;
-  assign auto_ss_out[168] = NMI_s;
-  assign auto_ss_out[217] = Oldnmi_n;
-
-
 
   //-----------------------------------------------------------------------
   //
@@ -3871,21 +3909,30 @@ module tv80_core (  /*AUTOARG*/
       Auto_Wait_t1 <= 1'b0;
       Auto_Wait_t2 <= 1'b0;
       m1_n         <= 1'b1;
-    end else if (auto_ss_wr) begin
-      integer auto_ss_idx;
-      Auto_Wait_t1 <= auto_ss_in[180];
-      Auto_Wait_t2 <= auto_ss_in[181];
-      BusAck       <= auto_ss_in[167];
-      Halt_FF      <= auto_ss_in[165];
-      IntCycle     <= auto_ss_in[215];
-      IntE_FF1     <= auto_ss_in[163];
-      IntE_FF2     <= auto_ss_in[164];
-      NMICycle     <= auto_ss_in[216];
-      No_BTR       <= auto_ss_in[178];
-      Pre_XY_F_M   <= auto_ss_in[174+:3];
-      m1_n         <= auto_ss_in[0];
-      mcycle       <= auto_ss_in[156+:7];
-      tstate       <= auto_ss_in[149+:7];
+    end else if (auto_ss_wr && device_match) begin
+      case (auto_ss_state_idx)
+        4: begin
+          mcycle[6:0] <= auto_ss_data_in[30:24];
+        end
+        5: begin
+          tstate[6:0]     <= auto_ss_data_in[6:0];
+          Pre_XY_F_M[2:0] <= auto_ss_data_in[30:28];
+        end
+        6: begin
+          Auto_Wait_t1 <= auto_ss_data_in[18];
+          Auto_Wait_t2 <= auto_ss_data_in[19];
+          BusAck       <= auto_ss_data_in[20];
+          Halt_FF      <= auto_ss_data_in[21];
+          IntCycle     <= auto_ss_data_in[22];
+          IntE_FF1     <= auto_ss_data_in[23];
+          IntE_FF2     <= auto_ss_data_in[24];
+          NMICycle     <= auto_ss_data_in[25];
+          No_BTR       <= auto_ss_data_in[26];
+          m1_n         <= auto_ss_data_in[27];
+        end
+        default: begin
+        end
+      endcase
     end else begin
       if (cen == 1'b1) begin
         if (T_Res == 1'b1) begin
@@ -3975,19 +4022,72 @@ module tv80_core (  /*AUTOARG*/
       end
     end
   end
-  assign auto_ss_out[180]    = Auto_Wait_t1;
-  assign auto_ss_out[181]    = Auto_Wait_t2;
-  assign auto_ss_out[167]    = BusAck;
-  assign auto_ss_out[165]    = Halt_FF;
-  assign auto_ss_out[215]    = IntCycle;
-  assign auto_ss_out[163]    = IntE_FF1;
-  assign auto_ss_out[164]    = IntE_FF2;
-  assign auto_ss_out[216]    = NMICycle;
-  assign auto_ss_out[178]    = No_BTR;
-  assign auto_ss_out[174+:3] = Pre_XY_F_M;
-  assign auto_ss_out[0]      = m1_n;
-  assign auto_ss_out[156+:7] = mcycle;
-  assign auto_ss_out[149+:7] = tstate;
+  always_comb begin
+    auto_ss_local_data_out = 32'h0;
+    auto_ss_local_ack      = 1'b0;
+    if (auto_ss_rd && device_match) begin
+      case (auto_ss_state_idx)
+        0: begin
+          auto_ss_local_data_out[31:0] = {PC, A};
+          auto_ss_local_ack            = 1'b1;
+        end
+        1: begin
+          auto_ss_local_data_out[31:0] = {TmpAddr, SP};
+          auto_ss_local_ack            = 1'b1;
+        end
+        2: begin
+          auto_ss_local_data_out[31:0] = {Ap, ACC, RegBusA_r};
+          auto_ss_local_ack            = 1'b1;
+        end
+        3: begin
+          auto_ss_local_data_out[31:0] = {IR, I, Fp, F};
+          auto_ss_local_ack            = 1'b1;
+        end
+        4: begin
+          auto_ss_local_data_out[30:0] = {mcycle, BusB, BusA, dout};
+          auto_ss_local_ack            = 1'b1;
+        end
+        5: begin
+          auto_ss_local_data_out[30:0] = {
+            Pre_XY_F_M, RegAddrC, RegAddrB_r, RegAddrA_r, mcycles, ALU_Op_r, Read_To_Reg_r, tstate
+          };
+          auto_ss_local_ack = 1'b1;
+        end
+        6: begin
+          auto_ss_local_data_out[27:0] = {
+            m1_n,
+            No_BTR,
+            NMICycle,
+            IntE_FF2,
+            IntE_FF1,
+            IntCycle,
+            Halt_FF,
+            BusAck,
+            Auto_Wait_t2,
+            Auto_Wait_t1,
+            Oldnmi_n,
+            NMI_s,
+            INT_s,
+            BusReq_s,
+            IncDecZ,
+            Z16_r,
+            XY_Ind,
+            Save_ALU_r,
+            PreserveC_r,
+            BTR_r,
+            Arith16_r,
+            Alternate,
+            XY_State,
+            IStatus,
+            ISet
+          };
+          auto_ss_local_ack = 1'b1;
+        end
+        default: begin
+        end
+      endcase
+    end
+  end
 
 
 
@@ -4057,16 +4157,40 @@ module tv80s (  /*AUTOARG*/
     nmi_n,
     busrq_n,
     di,
-    auto_ss_in,
+    auto_ss_rd,
     auto_ss_wr,
-    auto_ss_out
+    auto_ss_data_in,
+    auto_ss_device_idx,
+    auto_ss_state_idx,
+    auto_ss_base_device_idx,
+    auto_ss_data_out,
+    auto_ss_ack
 
 );
+  assign auto_ss_ack      = auto_ss_local_ack | auto_ss_i_tv80_core_ack;
+
+  assign auto_ss_data_out = auto_ss_local_data_out | auto_ss_i_tv80_core_data_out;
+
+  logic        auto_ss_local_ack;
+
+  logic [31:0] auto_ss_local_data_out;
+
+  wire         auto_ss_i_tv80_core_ack;
+
+  wire  [31:0] auto_ss_i_tv80_core_data_out;
+
+  wire         device_match = (auto_ss_device_idx == auto_ss_base_device_idx);
+
   genvar auto_ss_idx;
 
-  input [357:0] auto_ss_in;
+  input auto_ss_rd;
   input auto_ss_wr;
-  output [357:0] auto_ss_out;
+  input [31:0] auto_ss_data_in;
+  input [7:0] auto_ss_device_idx;
+  input [15:0] auto_ss_state_idx;
+  input [7:0] auto_ss_base_device_idx;
+  output logic [31:0] auto_ss_data_out;
+  output logic auto_ss_ack;
 
 
 
@@ -4108,32 +4232,37 @@ module tv80s (  /*AUTOARG*/
   wire [6:0] tstate;
 
   tv80_core #(Mode, IOWait) i_tv80_core (
-      .cen        (cen),
-      .m1_n       (m1_n),
-      .iorq       (iorq),
-      .no_read    (no_read),
-      .write      (write),
-      .rfsh_n     (rfsh_n),
-      .halt_n     (halt_n),
-      .wait_n     (wait_n),
-      .int_n      (int_n),
-      .nmi_n      (nmi_n),
-      .reset_n    (reset_n),
-      .busrq_n    (busrq_n),
-      .busak_n    (busak_n),
-      .clk        (clk),
-      .IntE       (),
-      .stop       (),
-      .A          (A),
-      .dinst      (di),
-      .di         (di_reg),
-      .dout       (dout),
-      .mc         (mcycle),
-      .ts         (tstate),
-      .intcycle_n (intcycle_n),
-      .auto_ss_in (auto_ss_in[12+:346]),
-      .auto_ss_out(auto_ss_out[12+:346]),
-      .auto_ss_wr (auto_ss_wr)
+      .cen                    (cen),
+      .m1_n                   (m1_n),
+      .iorq                   (iorq),
+      .no_read                (no_read),
+      .write                  (write),
+      .rfsh_n                 (rfsh_n),
+      .halt_n                 (halt_n),
+      .wait_n                 (wait_n),
+      .int_n                  (int_n),
+      .nmi_n                  (nmi_n),
+      .reset_n                (reset_n),
+      .busrq_n                (busrq_n),
+      .busak_n                (busak_n),
+      .clk                    (clk),
+      .IntE                   (),
+      .stop                   (),
+      .A                      (A),
+      .dinst                  (di),
+      .di                     (di_reg),
+      .dout                   (dout),
+      .mc                     (mcycle),
+      .ts                     (tstate),
+      .intcycle_n             (intcycle_n),
+      .auto_ss_rd             (auto_ss_rd),
+      .auto_ss_wr             (auto_ss_wr),
+      .auto_ss_data_in        (auto_ss_data_in),
+      .auto_ss_device_idx     (auto_ss_device_idx),
+      .auto_ss_state_idx      (auto_ss_state_idx),
+      .auto_ss_base_device_idx(auto_ss_base_device_idx + 1),
+      .auto_ss_data_out       (auto_ss_i_tv80_core_data_out),
+      .auto_ss_ack            (auto_ss_i_tv80_core_ack)
 
   );
 
@@ -4144,13 +4273,18 @@ module tv80s (  /*AUTOARG*/
       iorq_n <= 1'b1;
       mreq_n <= 1'b1;
       di_reg <= 0;
-    end else if (auto_ss_wr) begin
-      integer auto_ss_idx;
-      di_reg <= auto_ss_in[4+:8];
-      iorq_n <= auto_ss_in[1];
-      mreq_n <= auto_ss_in[0];
-      rd_n   <= auto_ss_in[2];
-      wr_n   <= auto_ss_in[3];
+    end else if (auto_ss_wr && device_match) begin
+      case (auto_ss_state_idx)
+        0: begin
+          di_reg[7:0] <= auto_ss_data_in[7:0];
+          iorq_n      <= auto_ss_data_in[8];
+          mreq_n      <= auto_ss_data_in[9];
+          rd_n        <= auto_ss_data_in[10];
+          wr_n        <= auto_ss_data_in[11];
+        end
+        default: begin
+        end
+      endcase
     end else if (cen) begin
       rd_n   <= 1'b1;
       wr_n   <= 1'b1;
@@ -4190,11 +4324,20 @@ module tv80s (  /*AUTOARG*/
       if (tstate[2] && wait_n == 1'b1 && !write && !no_read) di_reg <= di;
     end  // else: !if(!reset_n)
   end
-  assign auto_ss_out[4+:8] = di_reg;
-  assign auto_ss_out[1]    = iorq_n;
-  assign auto_ss_out[0]    = mreq_n;
-  assign auto_ss_out[2]    = rd_n;
-  assign auto_ss_out[3]    = wr_n;
+  always_comb begin
+    auto_ss_local_data_out = 32'h0;
+    auto_ss_local_ack      = 1'b0;
+    if (auto_ss_rd && device_match) begin
+      case (auto_ss_state_idx)
+        0: begin
+          auto_ss_local_data_out[11:0] = {wr_n, rd_n, mreq_n, iorq_n, di_reg};
+          auto_ss_local_ack            = 1'b1;
+        end
+        default: begin
+        end
+      endcase
+    end
+  end
 
   // always @ (posedge clk or negedge reset_n)
 

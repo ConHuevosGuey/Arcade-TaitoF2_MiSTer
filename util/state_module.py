@@ -386,6 +386,8 @@ class Register:
     
     def get_assignment_target(self) -> str:
         """Get the left-hand side target for assignments"""
+        return self.name
+
         if not self.packed:
             # Single bit register
             return self.name

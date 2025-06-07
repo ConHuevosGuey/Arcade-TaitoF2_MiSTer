@@ -1326,9 +1326,14 @@ auto_save_adaptor #(.N_BITS(Z80_SS_BITS), .SS_IDX(SSIDX_Z80)) z80_ss_adaptor(
 tv80s z80(
 
 `ifdef USE_AUTO_SS
-    .auto_ss_out(z80_ss_out),
-    .auto_ss_in(z80_ss_in),
-    .auto_ss_wr(z80_ss_wr),
+    .auto_ss_rd(0),
+    .auto_ss_wr(0),
+    .auto_ss_device_idx(0),
+    .auto_ss_state_idx(0),
+    .auto_ss_base_device_idx(0),
+    .auto_ss_data_in(0),
+    .auto_ss_data_out(),
+    .auto_ss_ack(),
 `endif
 
     .clk(clk),
@@ -1368,9 +1373,14 @@ auto_save_adaptor #(.N_BITS(YM_SS_BITS), .SS_IDX(SSIDX_YM)) ym_ss_adaptor(
 
 jt10 jt10(
 `ifdef USE_AUTO_SS
-    .auto_ss_wr(ym_ss_wr),
-    .auto_ss_in(ym_ss_in),
-    .auto_ss_out(ym_ss_out),
+    .auto_ss_rd(0),
+    .auto_ss_wr(0),
+    .auto_ss_device_idx(0),
+    .auto_ss_state_idx(0),
+    .auto_ss_base_device_idx(0),
+    .auto_ss_data_in(0),
+    .auto_ss_data_out(),
+    .auto_ss_ack(),
 `endif
 
     .rst(~SNRESn),
