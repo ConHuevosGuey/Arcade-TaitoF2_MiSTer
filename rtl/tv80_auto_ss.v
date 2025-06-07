@@ -2730,7 +2730,7 @@ module tv80_reg (  /*AUTOARG*/
       end
     end
     if (auto_ss_wr && device_match) begin
-      if (auto_ss_state_idx >= (0) && auto_ss_state_idx < (8)) begin
+      if (auto_ss_state_idx < (8)) begin
         RegsH[auto_ss_state_idx] <= auto_ss_data_in[7:0];
       end
       if (auto_ss_state_idx >= (8) && auto_ss_state_idx < (16)) begin
@@ -2744,7 +2744,7 @@ module tv80_reg (  /*AUTOARG*/
     auto_ss_data_out = 32'h0;
     auto_ss_ack      = 1'b0;
     if (auto_ss_rd && device_match) begin
-      if (auto_ss_state_idx >= (0) && auto_ss_state_idx < (8)) begin
+      if (auto_ss_state_idx < (8)) begin
         auto_ss_data_out[8-1:0] = RegsH[auto_ss_state_idx];
         auto_ss_ack             = 1'b1;
       end
@@ -3211,42 +3211,42 @@ module tv80_core (  /*AUTOARG*/
     end else if (auto_ss_wr && device_match) begin
       case (auto_ss_state_idx)
         0: begin
-          A[15:0]  <= auto_ss_data_in[15:0];
-          PC[15:0] <= auto_ss_data_in[31:16];
+          A  <= auto_ss_data_in[15:0];
+          PC <= auto_ss_data_in[31:16];
         end
         1: begin
-          SP[15:0]      <= auto_ss_data_in[15:0];
-          TmpAddr[15:0] <= auto_ss_data_in[31:16];
+          SP      <= auto_ss_data_in[15:0];
+          TmpAddr <= auto_ss_data_in[31:16];
         end
         2: begin
-          ACC[7:0] <= auto_ss_data_in[23:16];
-          Ap[7:0]  <= auto_ss_data_in[31:24];
+          ACC <= auto_ss_data_in[23:16];
+          Ap  <= auto_ss_data_in[31:24];
         end
         3: begin
-          F[7:0]  <= auto_ss_data_in[7:0];
-          Fp[7:0] <= auto_ss_data_in[15:8];
-          I[7:0]  <= auto_ss_data_in[23:16];
-          IR[7:0] <= auto_ss_data_in[31:24];
+          F  <= auto_ss_data_in[7:0];
+          Fp <= auto_ss_data_in[15:8];
+          I  <= auto_ss_data_in[23:16];
+          IR <= auto_ss_data_in[31:24];
         end
         4: begin
-          dout[7:0] <= auto_ss_data_in[7:0];
+          dout <= auto_ss_data_in[7:0];
         end
         5: begin
-          Read_To_Reg_r[4:0] <= auto_ss_data_in[11:7];
-          ALU_Op_r[3:0]      <= auto_ss_data_in[15:12];
-          mcycles[2:0]       <= auto_ss_data_in[18:16];
+          Read_To_Reg_r <= auto_ss_data_in[11:7];
+          ALU_Op_r      <= auto_ss_data_in[15:12];
+          mcycles       <= auto_ss_data_in[18:16];
         end
         6: begin
-          ISet[1:0]     <= auto_ss_data_in[1:0];
-          IStatus[1:0]  <= auto_ss_data_in[3:2];
-          XY_State[1:0] <= auto_ss_data_in[5:4];
-          Alternate     <= auto_ss_data_in[6];
-          Arith16_r     <= auto_ss_data_in[7];
-          BTR_r         <= auto_ss_data_in[8];
-          PreserveC_r   <= auto_ss_data_in[9];
-          Save_ALU_r    <= auto_ss_data_in[10];
-          XY_Ind        <= auto_ss_data_in[11];
-          Z16_r         <= auto_ss_data_in[12];
+          ISet        <= auto_ss_data_in[1:0];
+          IStatus     <= auto_ss_data_in[3:2];
+          XY_State    <= auto_ss_data_in[5:4];
+          Alternate   <= auto_ss_data_in[6];
+          Arith16_r   <= auto_ss_data_in[7];
+          BTR_r       <= auto_ss_data_in[8];
+          PreserveC_r <= auto_ss_data_in[9];
+          Save_ALU_r  <= auto_ss_data_in[10];
+          XY_Ind      <= auto_ss_data_in[11];
+          Z16_r       <= auto_ss_data_in[12];
         end
         default: begin
         end
@@ -3650,12 +3650,12 @@ module tv80_core (  /*AUTOARG*/
     if (auto_ss_wr && device_match) begin
       case (auto_ss_state_idx)
         2: begin
-          RegBusA_r[15:0] <= auto_ss_data_in[15:0];
+          RegBusA_r <= auto_ss_data_in[15:0];
         end
         5: begin
-          RegAddrA_r[2:0] <= auto_ss_data_in[21:19];
-          RegAddrB_r[2:0] <= auto_ss_data_in[24:22];
-          RegAddrC[2:0]   <= auto_ss_data_in[27:25];
+          RegAddrA_r <= auto_ss_data_in[21:19];
+          RegAddrB_r <= auto_ss_data_in[24:22];
+          RegAddrC   <= auto_ss_data_in[27:25];
         end
         6: begin
           IncDecZ <= auto_ss_data_in[13];
@@ -3817,8 +3817,8 @@ module tv80_core (  /*AUTOARG*/
     if (auto_ss_wr && device_match) begin
       case (auto_ss_state_idx)
         4: begin
-          BusA[7:0] <= auto_ss_data_in[15:8];
-          BusB[7:0] <= auto_ss_data_in[23:16];
+          BusA <= auto_ss_data_in[15:8];
+          BusB <= auto_ss_data_in[23:16];
         end
         default: begin
         end
@@ -3912,11 +3912,11 @@ module tv80_core (  /*AUTOARG*/
     end else if (auto_ss_wr && device_match) begin
       case (auto_ss_state_idx)
         4: begin
-          mcycle[6:0] <= auto_ss_data_in[30:24];
+          mcycle <= auto_ss_data_in[30:24];
         end
         5: begin
-          tstate[6:0]     <= auto_ss_data_in[6:0];
-          Pre_XY_F_M[2:0] <= auto_ss_data_in[30:28];
+          tstate     <= auto_ss_data_in[6:0];
+          Pre_XY_F_M <= auto_ss_data_in[30:28];
         end
         6: begin
           Auto_Wait_t1 <= auto_ss_data_in[18];
@@ -4276,11 +4276,11 @@ module tv80s (  /*AUTOARG*/
     end else if (auto_ss_wr && device_match) begin
       case (auto_ss_state_idx)
         0: begin
-          di_reg[7:0] <= auto_ss_data_in[7:0];
-          iorq_n      <= auto_ss_data_in[8];
-          mreq_n      <= auto_ss_data_in[9];
-          rd_n        <= auto_ss_data_in[10];
-          wr_n        <= auto_ss_data_in[11];
+          di_reg <= auto_ss_data_in[7:0];
+          iorq_n <= auto_ss_data_in[8];
+          mreq_n <= auto_ss_data_in[9];
+          rd_n   <= auto_ss_data_in[10];
+          wr_n   <= auto_ss_data_in[11];
         end
         default: begin
         end

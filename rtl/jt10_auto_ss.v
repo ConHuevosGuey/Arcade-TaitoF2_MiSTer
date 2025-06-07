@@ -370,7 +370,7 @@ module jt12_sh_rst #(
       end
     end
     if (auto_ss_wr && device_match) begin
-      if (auto_ss_state_idx >= (0) && auto_ss_state_idx < (width)) begin
+      if (auto_ss_state_idx < (width)) begin
         bits[auto_ss_state_idx] <= auto_ss_data_in[stages-1:0];
       end
     end
@@ -381,7 +381,7 @@ module jt12_sh_rst #(
     auto_ss_data_out = 32'h0;
     auto_ss_ack      = 1'b0;
     if (auto_ss_rd && device_match) begin
-      if (auto_ss_state_idx >= (0) && auto_ss_state_idx < (width)) begin
+      if (auto_ss_state_idx < (width)) begin
         auto_ss_data_out[stages-1:0] = bits[auto_ss_state_idx];
         auto_ss_ack                  = 1'b1;
       end
@@ -3571,7 +3571,7 @@ module jt12_sh #(
       end
     end
     if (auto_ss_wr && device_match) begin
-      if (auto_ss_state_idx >= (0) && auto_ss_state_idx < (width)) begin
+      if (auto_ss_state_idx < (width)) begin
         bits[auto_ss_state_idx] <= auto_ss_data_in[stages-1:0];
       end
     end
@@ -3582,7 +3582,7 @@ module jt12_sh #(
     auto_ss_data_out = 32'h0;
     auto_ss_ack      = 1'b0;
     if (auto_ss_rd && device_match) begin
-      if (auto_ss_state_idx >= (0) && auto_ss_state_idx < (width)) begin
+      if (auto_ss_state_idx < (width)) begin
         auto_ss_data_out[stages-1:0] = bits[auto_ss_state_idx];
         auto_ss_ack                  = 1'b1;
       end
@@ -3594,7 +3594,9 @@ module jt12_sh #(
 
   genvar i;
   generate
-    assign drop[i] = bits[i][stages-1];
+	for (i=0; i < width; i=i+1) begin: bit_shifter
+		assign drop[i] = bits[i][stages-1];
+	end
   endgenerate
 
 endmodule

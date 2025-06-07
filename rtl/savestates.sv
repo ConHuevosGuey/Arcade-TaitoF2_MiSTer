@@ -130,6 +130,66 @@ end
 
 endmodule
 
+module auto_save_adaptor2 #(parameter DEVICE_WIDTH=8, STATE_WIDTH=16, SS_IDX=-1)(
+    input clk,
+
+    ssbus_if.slave ssbus,
+
+    output reg rd,
+    output reg wr,
+    output reg [DEVICE_WIDTH-1:0] device_idx,
+    output reg [STATE_WIDTH-1:0] state_idx,
+    output reg [31:0] wr_data,
+    input      [31:0] rd_data,
+    input      ack
+);
+
+typedef enum { ST_INIT, ST_WAIT_READ, ST_CHECK_READ, ST_READY } state_t;
+state_t state = ST_INIT;
+
+reg [15:0] count;
+
+always @(posedge clk) begin
+    case(state)
+        ST_INIT: begin
+            count <= 0;
+            wr <= 0;
+            rd <= 1;
+            device_idx <= 0;
+            state_idx <= 0;
+            state <= ST_WAIT_READ;
+        end
+
+        ST_WAIT_READ: begin
+            state <= ST_CHECK_READ;
+        end
+
+        ST_CHECK_READ: begin
+            if (ack) begin
+                count <= count + 1;
+                state_idx <= state_idx + 1;
+                state <= ST_WAIT_READ;
+            end else begin
+                state_idx <= 0;
+                if (&device_idx) begin
+                    state <= ST_READY;
+                end else begin
+                    device_idx <= device_idx + 1;
+                    state <= ST_WAIT_READ;
+                end
+            end
+
+        end
+
+        ST_READY: begin
+            rd <= 0;
+            wr <= 0;
+        end
+
+    endcase
+end
+
+endmodule
 
 
 module save_state_data(
