@@ -22,7 +22,7 @@ SRCS_FULL = \
 	$(call rwildcard,rtl,*.v *.sv *.vhd *.vhdl *.qip *.sdc) \
 	$(wildcard *.sdc *.v *.sv *.vhd *.vhdl *.qip)
 
-SRCS = $(filter-out %_auto_ss.v,$(SRCS_FULL))
+SRCS = $(filter-out %_auto_ss.sv,$(SRCS_FULL))
 
 $(OUTDIR)/Arcade-TaitoF2-Fast.rbf: $(SRCS)
 	$(QUARTUS_DIR)/quartus_sh --flow compile $(PROJECT) -c Arcade-TaitoF2-Fast
