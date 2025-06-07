@@ -1376,15 +1376,29 @@ def generate_csv_mapping(root_module: 'Module', csv_path: str):
         
         # Add mappings for this module's registers
         if module.registers:
-            # Pack registers to get their chunk indices
-            packer = ChunkPacker()
-            chunk_count = packer.pack_registers(module.registers)
+            # For modules with assignments, we need to use the same combined packing
+            # approach as the code generation to ensure consistency
+            if module.assignments:
+                # Collect all registers from all assignments (same as _generate_combined_savestate_logic)
+                all_registers = []
+                for assignment in module.assignments:
+                    all_registers.extend(assignment.registers)
+                
+                # Pack registers with global indexing
+                packer = ChunkPacker()
+                chunk_count = packer.pack_registers(all_registers)
+            else:
+                # Module has registers but no assignments - use simple packing
+                packer = ChunkPacker()
+                chunk_count = packer.pack_registers(module.registers)
             
             # Add packed register chunks
             for chunk_idx, chunk_regs in enumerate(packer.chunks):
-                reg_names = [reg.name for reg in chunk_regs]
+                # Sort registers by bit_offset in reverse order to match code generation
+                sorted_regs = sorted(chunk_regs, key=lambda r: r.bit_offset or 0, reverse=True)
+                reg_names = [reg.name for reg in sorted_regs]
                 reg_types = []
-                for reg in chunk_regs:
+                for reg in sorted_regs:
                     if reg.packed:
                         reg_types.append(f"reg[{reg.packed.size}-1:0]")
                     else:
