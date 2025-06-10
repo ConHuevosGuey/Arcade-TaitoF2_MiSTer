@@ -101,4 +101,8 @@ rtl/jt10_auto_ss.sv:
 rtl/tv80_auto_ss.sv:
 	$(PYTHON) util/state_module.py --generate-csv docs/tv80_mapping.csv tv80s rtl/tv80_auto_ss.sv rtl/tv80/*.v
 
+rtl/fx68k_auto_ss.sv:
+	$(PYTHON) util/state_module.py --generate-csv docs/fx68k_mapping.csv fx68k rtl/fx68k_auto_ss.sv rtl/fx68k/hdl/*.v
+
+
 .PHONY: sim sim/run sim/test mister debug picorom rtl/jt10_auto_ss.sv rtl/tv80_auto_ss.sv
