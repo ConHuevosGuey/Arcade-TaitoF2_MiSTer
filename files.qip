@@ -35,6 +35,8 @@ set_global_assignment -name SYSTEMVERILOG_FILE rtl/rom_loader.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/audio_mix.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/video_path.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/rom_cache.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/mame_keys.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/coin_pulse.sv
 
 if (1) {
     set_global_assignment -name VERILOG_MACRO "USE_AUTO_SS=1"

@@ -278,7 +278,38 @@ wire [7:0] analog_x_p1, analog_y_p1, analog_x_p2, analog_y_p2;
 wire [7:0] paddle_p1, paddle_p2;
 wire [8:0] spinner_p1, spinner_p2;
 
-wire [15:0] joy_combined = joystick_p1 | joystick_p2 | joystick_p3 | joystick_p4;
+wire [3:0] kb_start, kb_coin;
+wire [7:0] kb_p1, kb_p2, kb_p3, kb_p4;
+wire kb_pause;
+
+wire [15:0] mame_p1, mame_p2, mame_p3, mame_p4;
+
+assign mame_p1[7:0] = kb_p1;
+assign mame_p1[BTN_PAUSE] = kb_pause;
+assign mame_p1[BTN_COIN] = kb_coin[0];
+assign mame_p1[BTN_START] = kb_start[0];
+
+assign mame_p2[7:0] = kb_p2;
+assign mame_p2[BTN_PAUSE] = kb_pause;
+assign mame_p2[BTN_COIN] = kb_coin[1];
+assign mame_p2[BTN_START] = kb_start[1];
+
+assign mame_p3[7:0] = kb_p3;
+assign mame_p3[BTN_PAUSE] = kb_pause;
+assign mame_p3[BTN_COIN] = kb_coin[2];
+assign mame_p3[BTN_START] = kb_start[2];
+
+assign mame_p4[7:0] = kb_p4;
+assign mame_p4[BTN_PAUSE] = kb_pause;
+assign mame_p4[BTN_COIN] = kb_coin[3];
+assign mame_p4[BTN_START] = kb_start[3];
+
+wire [15:0] input_p1 = joystick_p1 | mame_p1;
+wire [15:0] input_p2 = joystick_p2 | mame_p2;
+wire [15:0] input_p3 = joystick_p3 | mame_p3;
+wire [15:0] input_p4 = joystick_p4 | mame_p4;
+
+wire [15:0] input_combined = input_p1 | input_p2 | input_p3 | input_p4;
 
 wire [21:0] gamma_bus;
 wire        direct_video;
@@ -340,6 +371,21 @@ hps_io #(.CONF_STR(CONF_STR)) hps_io
 
 
     .ps2_key(ps2_key)
+);
+
+mame_keys mame_keys(
+    .clk(clk_sys),
+    .reset,
+
+    .ps2_key,
+
+    .start(kb_start),
+    .coin(kb_coin),
+    .p1(kb_p1),
+    .p2(kb_p2),
+    .p3(kb_p3),
+    .p4(kb_p4),
+    .pause(kb_pause)
 );
 
 ///////////////////////   CLOCKS   ///////////////////////////////
@@ -581,8 +627,8 @@ always_ff @(posedge clk_sys) begin
             end
         end
         2'b11: begin
-            analog_p1 <= sens(joystick_p1[0] ? 8'h40 : joystick_p1[1] ? 8'hc0 : 8'h00);
-            analog_p2 <= sens(joystick_p2[0] ? 8'h40 : joystick_p2[1] ? 8'hc0 : 8'h00);
+            analog_p1 <= sens(input_p1[0] ? 8'h40 : input_p1[1] ? 8'hc0 : 8'h00);
+            analog_p2 <= sens(input_p2[0] ? 8'h40 : input_p2[1] ? 8'hc0 : 8'h00);
             analog_abs <= 1;
         end
     endcase
@@ -608,18 +654,18 @@ F2 F2(
     .dswa(~dip_sw[0]),
     .dswb(~dip_sw[1]),
 
-    .joystick_p1(joystick_p1[9:0]),
-    .joystick_p2(joystick_p2[9:0]),
-    .joystick_p3(joystick_p3[9:0]),
-    .joystick_p4(joystick_p4[9:0]),
+    .joystick_p1(input_p1[9:0]),
+    .joystick_p2(input_p2[9:0]),
+    .joystick_p3(input_p3[9:0]),
+    .joystick_p4(input_p4[9:0]),
 
     .analog_abs(analog_abs),
     .analog_inc(analog_inc),
     .analog_p1(analog_p1),
     .analog_p2(analog_p2),
 
-    .start({joystick_p4[BTN_START], joystick_p3[BTN_START], joystick_p2[BTN_START], joystick_p1[BTN_START]}),
-    .coin({joystick_p4[BTN_COIN], joystick_p3[BTN_COIN], joystick_p2[BTN_COIN], joystick_p1[BTN_COIN]}),
+    .start({input_p4[BTN_START], input_p3[BTN_START], input_p2[BTN_START], input_p1[BTN_START]}),
+    .coin(coin),
 
     .audio_out(AUDIO_L),
 
@@ -689,7 +735,7 @@ wire system_pause;
 pause #(.CLKSPD(53)) pause(
     .clk_sys,
     .reset,
-    .user_button(joy_combined[BTN_PAUSE]),
+    .user_button(input_combined[BTN_PAUSE]),
     .pause_request(0),
     .options({pause_dim, osd_pause}),
 
@@ -702,6 +748,12 @@ pause #(.CLKSPD(53)) pause(
     .g_out(pause_g),
     .b_out(pause_b)
 );
+
+wire [3:0] coin;
+coin_pulse cp0(.clk(clk_sys), .vblank(core_vb), .button(input_p1[BTN_COIN]), .pulse(coin[0]));
+coin_pulse cp1(.clk(clk_sys), .vblank(core_vb), .button(input_p2[BTN_COIN]), .pulse(coin[1]));
+coin_pulse cp2(.clk(clk_sys), .vblank(core_vb), .button(input_p3[BTN_COIN]), .pulse(coin[2]));
+coin_pulse cp3(.clk(clk_sys), .vblank(core_vb), .button(input_p4[BTN_COIN]), .pulse(coin[3]));
 
 video_path video_path(
     .CLK_VIDEO,
@@ -745,11 +797,11 @@ savestate_ui #(.INFO_TIMEOUT_BITS(25)) savestate_ui
     .clk            (clk_sys),
     .ps2_key        (ps2_key[10:0]),
     .allow_ss       (1),
-    .joySS          (joy_combined[BTN_SS]),
-    .joyRight       (joy_combined[0]),
-    .joyLeft        (joy_combined[1]),
-    .joyDown        (joy_combined[2]),
-    .joyUp          (joy_combined[3]),
+    .joySS          (input_combined[BTN_SS]),
+    .joyRight       (input_combined[0]),
+    .joyLeft        (input_combined[1]),
+    .joyDown        (input_combined[2]),
+    .joyUp          (input_combined[3]),
     .joyRewind      (0),
     .rewindEnable   (0),
     .status_slot    (status[42:41]),
