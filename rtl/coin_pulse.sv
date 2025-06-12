@@ -18,7 +18,7 @@ always_ff @(posedge clk) begin
     prev_button <= button;
 
     if (vblank & ~prev_vblank) begin
-        shift <= { shift[15:1], 1'b0 };
+        shift <= { shift[14:0], 1'b0 };
     end
 
     if (~|shift & ~button & prev_button) begin
