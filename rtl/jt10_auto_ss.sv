@@ -2,20 +2,27 @@
 // MODULE jt12_dout
 module jt12_dout (
     // input             rst_n,
-    input            clk,           // CPU clock
-    input            flag_A,
-    input            flag_B,
-    input            busy,
-    input      [5:0] adpcma_flags,
-    input            adpcmb_flag,
-    input      [7:0] psg_dout,
-    input      [1:0] addr,
-    output reg [7:0] dout,
-    input      [7:0] auto_ss_in,
-    input            auto_ss_wr,
-    output     [7:0] auto_ss_out
+    input               clk,                      // CPU clock
+    input               flag_A,
+    input               flag_B,
+    input               busy,
+    input        [ 5:0] adpcma_flags,
+    input               adpcmb_flag,
+    input        [ 7:0] psg_dout,
+    input        [ 1:0] addr,
+    output reg   [ 7:0] dout,
+    input               auto_ss_rd,
+    input               auto_ss_wr,
+    input        [31:0] auto_ss_data_in,
+    input        [ 7:0] auto_ss_device_idx,
+    input        [15:0] auto_ss_state_idx,
+    input        [ 7:0] auto_ss_base_device_idx,
+    output logic [31:0] auto_ss_data_out,
+    output logic        auto_ss_ack
 
 );
+  wire device_match = (auto_ss_device_idx == auto_ss_base_device_idx);
+
   genvar auto_ss_idx;
 
 
@@ -30,14 +37,32 @@ module jt12_dout (
         dout <= (use_adpcm == 1) ? {adpcmb_flag, 1'b0, adpcma_flags} : {busy, 5'd0, flag_B, flag_A};
       endcase
     end
-    if (auto_ss_wr) begin
-      integer auto_ss_idx;
-      dout <= auto_ss_in[0+:8];
+    if (auto_ss_wr && device_match) begin
+      case (auto_ss_state_idx)
+        0: begin
+          dout <= auto_ss_data_in[7:0];
+        end
+        default: begin
+        end
+      endcase
     end
   end
 
 
-  assign auto_ss_out[0+:8] = dout;
+  always_comb begin
+    auto_ss_data_out = 32'h0;
+    auto_ss_ack      = 1'b0;
+    if (auto_ss_rd && device_match) begin
+      case (auto_ss_state_idx)
+        0: begin
+          auto_ss_data_out[8-1:0] = dout;
+          auto_ss_ack             = 1'b1;
+        end
+        default: begin
+        end
+      endcase
+    end
+  end
 
 
 
@@ -47,21 +72,28 @@ endmodule
 ///////////////////////////////////////////
 // MODULE jt12_div
 module jt12_div (
-    input             rst,
-    input             clk,
-    input             cen  /* synthesis direct_enable */,
-    input      [ 1:0] div_setting,
-    output reg        clk_en,                              // after prescaler
-    output reg        clk_en_2,                            // cen divided by 2
-    output reg        clk_en_ssg,
-    output reg        clk_en_666,                          // 666 kHz
-    output reg        clk_en_111,                          // 111 kHz
-    output reg        clk_en_55,
-    input      [30:0] auto_ss_in,
-    input             auto_ss_wr,
-    output     [30:0] auto_ss_out
+    input               rst,
+    input               clk,
+    input               cen  /* synthesis direct_enable */,
+    input        [ 1:0] div_setting,
+    output reg          clk_en,                              // after prescaler
+    output reg          clk_en_2,                            // cen divided by 2
+    output reg          clk_en_ssg,
+    output reg          clk_en_666,                          // 666 kHz
+    output reg          clk_en_111,                          // 111 kHz
+    output reg          clk_en_55,
+    input               auto_ss_rd,
+    input               auto_ss_wr,
+    input        [31:0] auto_ss_data_in,
+    input        [ 7:0] auto_ss_device_idx,
+    input        [15:0] auto_ss_state_idx,
+    input        [ 7:0] auto_ss_base_device_idx,
+    output logic [31:0] auto_ss_data_out,
+    output logic        auto_ss_ack
     //  55 kHz
 );
+  wire device_match = (auto_ss_device_idx == auto_ss_base_device_idx);
+
   genvar auto_ss_idx;
 
 
@@ -127,34 +159,26 @@ module jt12_div (
       clk_en_55      <= cen & cen_adpcm_int & cen_adpcm3_int & cen_55_int;
 
     end
-    if (auto_ss_wr) begin
-      integer auto_ss_idx;
-      cen_55_int     <= auto_ss_in[22];
-      cen_adpcm3_int <= auto_ss_in[21];
-      cen_adpcm_int  <= auto_ss_in[20];
-      cen_int        <= auto_ss_in[18];
-      cen_ssg_int    <= auto_ss_in[19];
-      clk_en         <= auto_ss_in[25];
-      clk_en_111     <= auto_ss_in[29];
-      clk_en_2       <= auto_ss_in[26];
-      clk_en_55      <= auto_ss_in[30];
-      clk_en_666     <= auto_ss_in[28];
-      clk_en_ssg     <= auto_ss_in[27];
+    if (auto_ss_wr && device_match) begin
+      case (auto_ss_state_idx)
+        0: begin
+          cen_55_int     <= auto_ss_data_in[20];
+          cen_adpcm3_int <= auto_ss_data_in[21];
+          cen_adpcm_int  <= auto_ss_data_in[22];
+          cen_int        <= auto_ss_data_in[23];
+          cen_ssg_int    <= auto_ss_data_in[24];
+          clk_en         <= auto_ss_data_in[25];
+          clk_en_111     <= auto_ss_data_in[26];
+          clk_en_2       <= auto_ss_data_in[27];
+          clk_en_55      <= auto_ss_data_in[28];
+          clk_en_666     <= auto_ss_data_in[29];
+          clk_en_ssg     <= auto_ss_data_in[30];
+        end
+        default: begin
+        end
+      endcase
     end
   end
-
-
-  assign auto_ss_out[22] = cen_55_int;
-  assign auto_ss_out[21] = cen_adpcm3_int;
-  assign auto_ss_out[20] = cen_adpcm_int;
-  assign auto_ss_out[18] = cen_int;
-  assign auto_ss_out[19] = cen_ssg_int;
-  assign auto_ss_out[25] = clk_en;
-  assign auto_ss_out[29] = clk_en_111;
-  assign auto_ss_out[26] = clk_en_2;
-  assign auto_ss_out[30] = clk_en_55;
-  assign auto_ss_out[28] = clk_en_666;
-  assign auto_ss_out[27] = clk_en_ssg;
 
 
 
@@ -164,14 +188,16 @@ module jt12_div (
     if (cen) begin
       div2 <= div2 == 2'b10 ? 2'b00 : (div2 + 2'b01);
     end
-    if (auto_ss_wr) begin
-      integer auto_ss_idx;
-      div2 <= auto_ss_in[23+:2];
+    if (auto_ss_wr && device_match) begin
+      case (auto_ss_state_idx)
+        0: begin
+          div2 <= auto_ss_data_in[19:18];
+        end
+        default: begin
+        end
+      endcase
     end
   end
-
-
-  assign auto_ss_out[23+:2] = div2;
 
 
 
@@ -183,14 +209,16 @@ module jt12_div (
         opn_cnt <= 4'd0;
       end else opn_cnt <= opn_cnt + 4'd1;
     end
-    if (auto_ss_wr) begin
-      integer auto_ss_idx;
-      opn_cnt <= auto_ss_in[0+:4];
+    if (auto_ss_wr && device_match) begin
+      case (auto_ss_state_idx)
+        0: begin
+          opn_cnt <= auto_ss_data_in[8:5];
+        end
+        default: begin
+        end
+      endcase
     end
   end
-
-
-  assign auto_ss_out[0+:4] = opn_cnt;
 
 
 
@@ -202,14 +230,16 @@ module jt12_div (
         ssg_cnt <= 3'd0;
       end else ssg_cnt <= ssg_cnt + 3'd1;
     end
-    if (auto_ss_wr) begin
-      integer auto_ss_idx;
-      ssg_cnt <= auto_ss_in[4+:3];
+    if (auto_ss_wr && device_match) begin
+      case (auto_ss_state_idx)
+        0: begin
+          ssg_cnt <= auto_ss_data_in[11:9];
+        end
+        default: begin
+        end
+      endcase
     end
   end
-
-
-  assign auto_ss_out[4+:3] = ssg_cnt;
 
 
 
@@ -223,18 +253,52 @@ module jt12_div (
         if (adpcm_cnt111 == 3'd0) adpcm_cnt55 <= adpcm_cnt55 == 3'd1 ? 3'd0 : adpcm_cnt55 + 3'd1;
       end
     end
-    if (auto_ss_wr) begin
-      integer auto_ss_idx;
-      adpcm_cnt111 <= auto_ss_in[12+:3];
-      adpcm_cnt55  <= auto_ss_in[15+:3];
-      adpcm_cnt666 <= auto_ss_in[7+:5];
+    if (auto_ss_wr && device_match) begin
+      case (auto_ss_state_idx)
+        0: begin
+          adpcm_cnt666 <= auto_ss_data_in[4:0];
+          adpcm_cnt111 <= auto_ss_data_in[14:12];
+          adpcm_cnt55  <= auto_ss_data_in[17:15];
+        end
+        default: begin
+        end
+      endcase
     end
   end
 
 
-  assign auto_ss_out[12+:3] = adpcm_cnt111;
-  assign auto_ss_out[15+:3] = adpcm_cnt55;
-  assign auto_ss_out[7+:5]  = adpcm_cnt666;
+  always_comb begin
+    auto_ss_data_out = 32'h0;
+    auto_ss_ack      = 1'b0;
+    if (auto_ss_rd && device_match) begin
+      case (auto_ss_state_idx)
+        0: begin
+          auto_ss_data_out[30:0] = {
+            clk_en_ssg,
+            clk_en_666,
+            clk_en_55,
+            clk_en_2,
+            clk_en_111,
+            clk_en,
+            cen_ssg_int,
+            cen_int,
+            cen_adpcm_int,
+            cen_adpcm3_int,
+            cen_55_int,
+            div2,
+            adpcm_cnt55,
+            adpcm_cnt111,
+            ssg_cnt,
+            opn_cnt,
+            adpcm_cnt666
+          };
+          auto_ss_ack = 1'b1;
+        end
+        default: begin
+        end
+      endcase
+    end
+  end
 
 
 
@@ -273,39 +337,63 @@ module jt12_sh_rst #(
               stages = 32,
               rstval = 1'b0
 ) (
+    input                    rst,
+    input                    clk,
+    input                    clk_en  /* synthesis direct_enable */,
+    input        [width-1:0] din,
+    output       [width-1:0] drop,
+    input                    auto_ss_rd,
+    input                    auto_ss_wr,
+    input        [     31:0] auto_ss_data_in,
+    input        [      7:0] auto_ss_device_idx,
+    input        [     15:0] auto_ss_state_idx,
+    input        [      7:0] auto_ss_base_device_idx,
+    output logic [     31:0] auto_ss_data_out,
+    output logic             auto_ss_ack
 
-    input  [width*stages-1:0] auto_ss_in,
-    output [width*stages-1:0] auto_ss_out,
-    input                     auto_ss_wr,
-    // USE_AUTO_SS
-    input                     rst,
-    input                     clk,
-    input                     clk_en  /* synthesis direct_enable */,
-    input  [       width-1:0] din,
-    output [       width-1:0] drop
 
 );
+  wire device_match = (auto_ss_device_idx == auto_ss_base_device_idx);
+
+  genvar auto_ss_idx;
+
 
   reg  [stages-1:0] bits                                    [width-1:0];
   wire [ width-1:0] din_mx = rst ? {width{rstval[0]}} : din;
 
+  always @(posedge clk) begin
+    begin
+      if (clk_en) begin
+        for (int i = 0; i < width; i = i + 1) begin
+          bits[i] <= {bits[i][stages-2:0], din_mx[i]};
+        end
+      end
+    end
+    if (auto_ss_wr && device_match) begin
+      if (auto_ss_state_idx < (width)) begin
+        bits[auto_ss_state_idx] <= auto_ss_data_in[stages-1:0];
+      end
+    end
+  end
+
+
+  always_comb begin
+    auto_ss_data_out = 32'h0;
+    auto_ss_ack      = 1'b0;
+    if (auto_ss_rd && device_match) begin
+      if (auto_ss_state_idx < (width)) begin
+        auto_ss_data_out[stages-1:0] = bits[auto_ss_state_idx];
+        auto_ss_ack                  = 1'b1;
+      end
+    end
+  end
+
+
+
   genvar i;
   generate
     for (i = 0; i < width; i = i + 1) begin : bit_shifter
-      always @(posedge clk) begin
-        if (clk_en) begin
-          bits[i] <= {bits[i][stages-2:0], din_mx[i]};
-        end
-
-        if (auto_ss_wr) begin
-          bits[i] <= auto_ss_in[stages*i+:stages];
-        end
-
-      end
-      assign drop[i]                       = bits[i][stages-1];
-
-      assign auto_ss_out[stages*i+:stages] = bits[i];
-
+      assign drop[i] = bits[i][stages-1];
     end
   endgenerate
 
@@ -327,25 +415,60 @@ module jt12_kon (
     // input            flag_A,
     input       overflow_A,
 
-    output reg        keyon_I,
-    input      [50:0] auto_ss_in,
-    input             auto_ss_wr,
-    output     [50:0] auto_ss_out
+    output reg          keyon_I,
+    input               auto_ss_rd,
+    input               auto_ss_wr,
+    input        [31:0] auto_ss_data_in,
+    input        [ 7:0] auto_ss_device_idx,
+    input        [15:0] auto_ss_state_idx,
+    input        [ 7:0] auto_ss_base_device_idx,
+    output logic [31:0] auto_ss_data_out,
+    output logic        auto_ss_ack
 
 );
+  assign auto_ss_ack = auto_ss_local_ack | auto_ss_u_konch0_ack | auto_ss_u_konch1_ack | auto_ss_u_konch2_ack | auto_ss_u_konch3_ack;
+
+  assign auto_ss_data_out = auto_ss_local_data_out | auto_ss_u_konch0_data_out | auto_ss_u_konch1_data_out | auto_ss_u_konch2_data_out | auto_ss_u_konch3_data_out;
+
+  logic        auto_ss_local_ack;
+
+  logic [31:0] auto_ss_local_data_out;
+
+  wire         auto_ss_u_konch3_ack;
+
+  wire  [31:0] auto_ss_u_konch3_data_out;
+
+  wire         auto_ss_u_konch2_ack;
+
+  wire  [31:0] auto_ss_u_konch2_data_out;
+
+  wire         auto_ss_u_konch1_ack;
+
+  wire  [31:0] auto_ss_u_konch1_data_out;
+
+  wire         auto_ss_u_konch0_ack;
+
+  wire  [31:0] auto_ss_u_konch0_data_out;
+
+  wire         device_match = (auto_ss_device_idx == auto_ss_base_device_idx);
+
   genvar auto_ss_idx;
 
 
   parameter num_ch = 6;
 
-  wire csr_out;
+  wire       csr_out;
+
+  reg        overflow2;
+  reg  [4:0] overflow_cycle;
+  reg        up_keyon_reg;
+  reg  [3:0] tkeyon_op;
+  reg  [2:0] tkeyon_ch;
+
 
   generate
     if (num_ch == 6) begin
       // capture overflow signal so it lasts long enough
-      reg       overflow2;
-      reg [4:0] overflow_cycle;
-
       always @(posedge clk) begin
         if (clk_en) begin
           if (overflow_A) begin
@@ -355,36 +478,37 @@ module jt12_kon (
             if (overflow_cycle == {next_op, next_ch}) overflow2 <= 1'b0;
           end
         end
-        if (auto_ss_wr) begin
-          integer auto_ss_idx;
-          overflow2      <= auto_ss_in[0];
-          overflow_cycle <= auto_ss_in[1+:5];
+        if (auto_ss_wr && device_match) begin
+          case (auto_ss_state_idx)
+            0: begin
+              overflow_cycle <= auto_ss_data_in[4:0];
+              overflow2      <= auto_ss_data_in[12];
+            end
+            default: begin
+            end
+          endcase
         end
       end
-
-
-      assign auto_ss_out[0]    = overflow2;
-      assign auto_ss_out[1+:5] = overflow_cycle;
 
 
 
       always @(posedge clk) begin
         if (clk_en) keyon_I <= (csm && next_ch == 3'd2 && overflow2) || csr_out;
-        if (auto_ss_wr) begin
-          integer auto_ss_idx;
-          keyon_I <= auto_ss_in[14];
+        if (auto_ss_wr && device_match) begin
+          case (auto_ss_state_idx)
+            0: begin
+              keyon_I <= auto_ss_data_in[15];
+              keyon_I <= auto_ss_data_in[15];
+            end
+            default: begin
+            end
+          endcase
         end
       end
 
 
-      assign auto_ss_out[14] = keyon_I;
 
-
-
-      reg        up_keyon_reg;
-      reg  [3:0] tkeyon_op;
-      reg  [2:0] tkeyon_ch;
-      wire       key_upnow;
+      wire key_upnow;
 
       assign key_upnow = up_keyon_reg && (tkeyon_ch == next_ch) && (next_op == 2'd3);
 
@@ -397,18 +521,18 @@ module jt12_kon (
             tkeyon_ch    <= keyon_ch;
           end else if (key_upnow) up_keyon_reg <= 1'b0;
         end
-        if (auto_ss_wr) begin
-          integer auto_ss_idx;
-          tkeyon_ch    <= auto_ss_in[11+:3];
-          tkeyon_op    <= auto_ss_in[7+:4];
-          up_keyon_reg <= auto_ss_in[6];
+        if (auto_ss_wr && device_match) begin
+          case (auto_ss_state_idx)
+            0: begin
+              tkeyon_op    <= auto_ss_data_in[8:5];
+              tkeyon_ch    <= auto_ss_data_in[11:9];
+              up_keyon_reg <= auto_ss_data_in[14];
+            end
+            default: begin
+            end
+          endcase
         end
       end
-
-
-      assign auto_ss_out[11+:3] = tkeyon_ch;
-      assign auto_ss_out[7+:4]  = tkeyon_op;
-      assign auto_ss_out[6]     = up_keyon_reg;
 
 
 
@@ -426,14 +550,19 @@ module jt12_kon (
           .stages(6),
           .rstval(1'b0)
       ) u_konch0 (
-          .clk        (clk),
-          .clk_en     (clk_en),
-          .rst        (rst),
-          .din        (din),
-          .drop       (middle1),
-          .auto_ss_in (auto_ss_in[15+:6]),
-          .auto_ss_out(auto_ss_out[15+:6]),
-          .auto_ss_wr (auto_ss_wr)
+          .clk                    (clk),
+          .clk_en                 (clk_en),
+          .rst                    (rst),
+          .din                    (din),
+          .drop                   (middle1),
+          .auto_ss_rd             (auto_ss_rd),
+          .auto_ss_wr             (auto_ss_wr),
+          .auto_ss_data_in        (auto_ss_data_in),
+          .auto_ss_device_idx     (auto_ss_device_idx),
+          .auto_ss_state_idx      (auto_ss_state_idx),
+          .auto_ss_base_device_idx(auto_ss_base_device_idx + 1),
+          .auto_ss_data_out       (auto_ss_u_konch0_data_out),
+          .auto_ss_ack            (auto_ss_u_konch0_ack)
 
       );
 
@@ -442,14 +571,19 @@ module jt12_kon (
           .stages(6),
           .rstval(1'b0)
       ) u_konch1 (
-          .clk        (clk),
-          .clk_en     (clk_en),
-          .rst        (rst),
-          .din        (mid_din2),
-          .drop       (middle2),
-          .auto_ss_in (auto_ss_in[21+:6]),
-          .auto_ss_out(auto_ss_out[21+:6]),
-          .auto_ss_wr (auto_ss_wr)
+          .clk                    (clk),
+          .clk_en                 (clk_en),
+          .rst                    (rst),
+          .din                    (mid_din2),
+          .drop                   (middle2),
+          .auto_ss_rd             (auto_ss_rd),
+          .auto_ss_wr             (auto_ss_wr),
+          .auto_ss_data_in        (auto_ss_data_in),
+          .auto_ss_device_idx     (auto_ss_device_idx),
+          .auto_ss_state_idx      (auto_ss_state_idx),
+          .auto_ss_base_device_idx(auto_ss_base_device_idx + 2),
+          .auto_ss_data_out       (auto_ss_u_konch1_data_out),
+          .auto_ss_ack            (auto_ss_u_konch1_ack)
 
       );
 
@@ -458,14 +592,19 @@ module jt12_kon (
           .stages(6),
           .rstval(1'b0)
       ) u_konch2 (
-          .clk        (clk),
-          .clk_en     (clk_en),
-          .rst        (rst),
-          .din        (mid_din3),
-          .drop       (middle3),
-          .auto_ss_in (auto_ss_in[27+:6]),
-          .auto_ss_out(auto_ss_out[27+:6]),
-          .auto_ss_wr (auto_ss_wr)
+          .clk                    (clk),
+          .clk_en                 (clk_en),
+          .rst                    (rst),
+          .din                    (mid_din3),
+          .drop                   (middle3),
+          .auto_ss_rd             (auto_ss_rd),
+          .auto_ss_wr             (auto_ss_wr),
+          .auto_ss_data_in        (auto_ss_data_in),
+          .auto_ss_device_idx     (auto_ss_device_idx),
+          .auto_ss_state_idx      (auto_ss_state_idx),
+          .auto_ss_base_device_idx(auto_ss_base_device_idx + 3),
+          .auto_ss_data_out       (auto_ss_u_konch2_data_out),
+          .auto_ss_ack            (auto_ss_u_konch2_ack)
 
       );
 
@@ -474,14 +613,19 @@ module jt12_kon (
           .stages(6),
           .rstval(1'b0)
       ) u_konch3 (
-          .clk        (clk),
-          .clk_en     (clk_en),
-          .rst        (rst),
-          .din        (mid_din4),
-          .drop       (csr_out),
-          .auto_ss_in (auto_ss_in[33+:6]),
-          .auto_ss_out(auto_ss_out[33+:6]),
-          .auto_ss_wr (auto_ss_wr)
+          .clk                    (clk),
+          .clk_en                 (clk_en),
+          .rst                    (rst),
+          .din                    (mid_din4),
+          .drop                   (csr_out),
+          .auto_ss_rd             (auto_ss_rd),
+          .auto_ss_wr             (auto_ss_wr),
+          .auto_ss_data_in        (auto_ss_data_in),
+          .auto_ss_device_idx     (auto_ss_device_idx),
+          .auto_ss_state_idx      (auto_ss_state_idx),
+          .auto_ss_base_device_idx(auto_ss_base_device_idx + 4),
+          .auto_ss_data_out       (auto_ss_u_konch3_data_out),
+          .auto_ss_ack            (auto_ss_u_konch3_ack)
 
       );
     end else begin  // 3 channels
@@ -500,14 +644,35 @@ module jt12_kon (
 
       always @(posedge clk) begin
         if (clk_en) keyon_I <= csr_out;
-        if (auto_ss_wr) begin
-          integer auto_ss_idx;
-          keyon_I <= auto_ss_in[14];
+        if (auto_ss_wr && device_match) begin
+          case (auto_ss_state_idx)
+            0: begin
+              keyon_I <= auto_ss_data_in[15];
+              keyon_I <= auto_ss_data_in[15];
+            end
+            default: begin
+            end
+          endcase
         end
       end
 
 
-      assign auto_ss_out[14] = keyon_I;
+      always_comb begin
+        auto_ss_local_data_out = 32'h0;
+        auto_ss_local_ack      = 1'b0;
+        if (auto_ss_rd && device_match) begin
+          case (auto_ss_state_idx)
+            0: begin
+              auto_ss_local_data_out[15:0] = {
+                keyon_I, keyon_I, up_keyon_reg, overflow2, tkeyon_ch, tkeyon_op, overflow_cycle
+              };
+              auto_ss_local_ack = 1'b1;
+            end
+            default: begin
+            end
+          endcase
+        end
+      end
 
       // No CSM for YM2203
 
@@ -516,14 +681,19 @@ module jt12_kon (
           .stages(12),
           .rstval(1'b0)
       ) u_konch1 (
-          .clk        (clk),
-          .clk_en     (clk_en),
-          .rst        (rst),
-          .din        (din),
-          .drop       (csr_out),
-          .auto_ss_in (auto_ss_in[39+:12]),
-          .auto_ss_out(auto_ss_out[39+:12]),
-          .auto_ss_wr (auto_ss_wr)
+          .clk                    (clk),
+          .clk_en                 (clk_en),
+          .rst                    (rst),
+          .din                    (din),
+          .drop                   (csr_out),
+          .auto_ss_rd             (auto_ss_rd),
+          .auto_ss_wr             (auto_ss_wr),
+          .auto_ss_data_in        (auto_ss_data_in),
+          .auto_ss_device_idx     (auto_ss_device_idx),
+          .auto_ss_state_idx      (auto_ss_state_idx),
+          .auto_ss_base_device_idx(auto_ss_base_device_idx + 5),
+          .auto_ss_data_out       (auto_ss_u_konch1_data_out),
+          .auto_ss_ack            (auto_ss_u_konch1_ack)
 
       );
     end
@@ -674,19 +844,26 @@ module jt12_reg_ch (
     input       up_alg,
     input       up_pms,
 
-    input      [             2:0] ch,          // next active channel
-    output reg [             2:0] block,
-    output reg [            10:0] fnum,
-    output reg [             2:0] fb,
-    output reg [             2:0] alg,
-    output reg [             1:0] rl,
-    output reg [             1:0] ams_IV,
-    output reg [             2:0] pms,
-    input      [27*NUM_CH + 26:0] auto_ss_in,
-    input                         auto_ss_wr,
-    output     [27*NUM_CH + 26:0] auto_ss_out
+    input        [ 2:0] ch,                       // next active channel
+    output reg   [ 2:0] block,
+    output reg   [10:0] fnum,
+    output reg   [ 2:0] fb,
+    output reg   [ 2:0] alg,
+    output reg   [ 1:0] rl,
+    output reg   [ 1:0] ams_IV,
+    output reg   [ 2:0] pms,
+    input               auto_ss_rd,
+    input               auto_ss_wr,
+    input        [31:0] auto_ss_data_in,
+    input        [ 7:0] auto_ss_device_idx,
+    input        [15:0] auto_ss_state_idx,
+    input        [ 7:0] auto_ss_base_device_idx,
+    output logic [31:0] auto_ss_data_out,
+    output logic        auto_ss_ack
 
 );
+  wire device_match = (auto_ss_device_idx == auto_ss_base_device_idx);
+
   genvar auto_ss_idx;
 
 
@@ -745,26 +922,22 @@ module jt12_reg_ch (
       pms    <= reg_pms[out_sel];
       if (NUM_CH == 3) rl <= 3;  // YM2203 has no stereo output
     end
-    if (auto_ss_wr) begin
-      integer auto_ss_idx;
-      alg    <= auto_ss_in[27*NUM_CH+17+:3];
-      ams_IV <= auto_ss_in[27*NUM_CH+22+:2];
-      block  <= auto_ss_in[27*NUM_CH+:3];
-      fb     <= auto_ss_in[27*NUM_CH+14+:3];
-      fnum   <= auto_ss_in[27*NUM_CH+3+:11];
-      pms    <= auto_ss_in[27*NUM_CH+24+:3];
-      rl     <= auto_ss_in[27*NUM_CH+20+:2];
+    if (auto_ss_wr && device_match) begin
+      case (auto_ss_state_idx)
+        0: begin
+          fnum   <= auto_ss_data_in[10:0];
+          alg    <= auto_ss_data_in[13:11];
+          block  <= auto_ss_data_in[16:14];
+          fb     <= auto_ss_data_in[19:17];
+          pms    <= auto_ss_data_in[22:20];
+          ams_IV <= auto_ss_data_in[24:23];
+          rl     <= auto_ss_data_in[26:25];
+        end
+        default: begin
+        end
+      endcase
     end
   end
-
-
-  assign auto_ss_out[27*NUM_CH+17+:3] = alg;
-  assign auto_ss_out[27*NUM_CH+22+:2] = ams_IV;
-  assign auto_ss_out[27*NUM_CH+:3]    = block;
-  assign auto_ss_out[27*NUM_CH+14+:3] = fb;
-  assign auto_ss_out[27*NUM_CH+3+:11] = fnum;
-  assign auto_ss_out[27*NUM_CH+24+:3] = pms;
-  assign auto_ss_out[27*NUM_CH+20+:2] = rl;
 
 
 
@@ -779,28 +952,27 @@ module jt12_reg_ch (
         reg_ams[i]   <= 0;
         reg_pms[i]   <= 0;
       end
-    else if (auto_ss_wr) begin
-      integer auto_ss_idx;
-      for (auto_ss_idx = 0; auto_ss_idx < (NUM_CH); auto_ss_idx = auto_ss_idx + 1) begin
-        reg_alg[auto_ss_idx] <= auto_ss_in[17*NUM_CH+3*auto_ss_idx+:3];
+    else if (auto_ss_wr && device_match) begin
+      if (auto_ss_state_idx >= (1) && auto_ss_state_idx < (NUM_CH + 1)) begin
+        reg_alg[auto_ss_state_idx-1] <= auto_ss_data_in[2:0];
       end
-      for (auto_ss_idx = 0; auto_ss_idx < (NUM_CH); auto_ss_idx = auto_ss_idx + 1) begin
-        reg_ams[auto_ss_idx] <= auto_ss_in[22*NUM_CH+2*auto_ss_idx+:2];
+      if (auto_ss_state_idx >= (NUM_CH + 1) && auto_ss_state_idx < (2 * NUM_CH + 1)) begin
+        reg_ams[-NUM_CH+auto_ss_state_idx-1] <= auto_ss_data_in[1:0];
       end
-      for (auto_ss_idx = 0; auto_ss_idx < (NUM_CH); auto_ss_idx = auto_ss_idx + 1) begin
-        reg_block[auto_ss_idx] <= auto_ss_in[3*auto_ss_idx+:3];
+      if (auto_ss_state_idx >= (2 * NUM_CH + 1) && auto_ss_state_idx < (3 * NUM_CH + 1)) begin
+        reg_block[-2*NUM_CH+auto_ss_state_idx-1] <= auto_ss_data_in[2:0];
       end
-      for (auto_ss_idx = 0; auto_ss_idx < (NUM_CH); auto_ss_idx = auto_ss_idx + 1) begin
-        reg_fb[auto_ss_idx] <= auto_ss_in[14*NUM_CH+3*auto_ss_idx+:3];
+      if (auto_ss_state_idx >= (3 * NUM_CH + 1) && auto_ss_state_idx < (4 * NUM_CH + 1)) begin
+        reg_fb[-3*NUM_CH+auto_ss_state_idx-1] <= auto_ss_data_in[2:0];
       end
-      for (auto_ss_idx = 0; auto_ss_idx < (NUM_CH); auto_ss_idx = auto_ss_idx + 1) begin
-        reg_fnum[auto_ss_idx] <= auto_ss_in[3*NUM_CH+11*auto_ss_idx+:11];
+      if (auto_ss_state_idx >= (4 * NUM_CH + 1) && auto_ss_state_idx < (5 * NUM_CH + 1)) begin
+        reg_fnum[-4*NUM_CH+auto_ss_state_idx-1] <= auto_ss_data_in[10:0];
       end
-      for (auto_ss_idx = 0; auto_ss_idx < (NUM_CH); auto_ss_idx = auto_ss_idx + 1) begin
-        reg_pms[auto_ss_idx] <= auto_ss_in[24*NUM_CH+3*auto_ss_idx+:3];
+      if (auto_ss_state_idx >= (5 * NUM_CH + 1) && auto_ss_state_idx < (6 * NUM_CH + 1)) begin
+        reg_pms[-5*NUM_CH+auto_ss_state_idx-1] <= auto_ss_data_in[2:0];
       end
-      for (auto_ss_idx = 0; auto_ss_idx < (NUM_CH); auto_ss_idx = auto_ss_idx + 1) begin
-        reg_rl[auto_ss_idx] <= auto_ss_in[20*NUM_CH+2*auto_ss_idx+:2];
+      if (auto_ss_state_idx >= (6 * NUM_CH + 1) && auto_ss_state_idx < (7 * NUM_CH + 1)) begin
+        reg_rl[-6*NUM_CH+auto_ss_state_idx-1] <= auto_ss_data_in[1:0];
       end
     end else begin
       i = 0;  // prevents latch warning in Quartus
@@ -816,44 +988,48 @@ module jt12_reg_ch (
       end
     end
   end
-  generate
-    for (
-        auto_ss_idx = 0; auto_ss_idx < (NUM_CH); auto_ss_idx = auto_ss_idx + 1
-    ) begin : blk_asg_reg_alg
-      assign auto_ss_out[17*NUM_CH+3*auto_ss_idx+:3] = reg_alg[auto_ss_idx];
+  always_comb begin
+    auto_ss_data_out = 32'h0;
+    auto_ss_ack      = 1'b0;
+    if (auto_ss_rd && device_match) begin
+      case (auto_ss_state_idx)
+        0: begin
+          auto_ss_data_out[26:0] = {rl, ams_IV, pms, fb, block, alg, fnum};
+          auto_ss_ack            = 1'b1;
+        end
+        default: begin
+          if (auto_ss_state_idx >= (1) && auto_ss_state_idx < (NUM_CH + 1)) begin
+            auto_ss_data_out[3-1:0] = reg_alg[auto_ss_state_idx-1];
+            auto_ss_ack             = 1'b1;
+          end
+          if (auto_ss_state_idx >= (NUM_CH + 1) && auto_ss_state_idx < (2 * NUM_CH + 1)) begin
+            auto_ss_data_out[2-1:0] = reg_ams[-NUM_CH+auto_ss_state_idx-1];
+            auto_ss_ack             = 1'b1;
+          end
+          if (auto_ss_state_idx >= (2 * NUM_CH + 1) && auto_ss_state_idx < (3 * NUM_CH + 1)) begin
+            auto_ss_data_out[3-1:0] = reg_block[-2*NUM_CH+auto_ss_state_idx-1];
+            auto_ss_ack             = 1'b1;
+          end
+          if (auto_ss_state_idx >= (3 * NUM_CH + 1) && auto_ss_state_idx < (4 * NUM_CH + 1)) begin
+            auto_ss_data_out[3-1:0] = reg_fb[-3*NUM_CH+auto_ss_state_idx-1];
+            auto_ss_ack             = 1'b1;
+          end
+          if (auto_ss_state_idx >= (4 * NUM_CH + 1) && auto_ss_state_idx < (5 * NUM_CH + 1)) begin
+            auto_ss_data_out[11-1:0] = reg_fnum[-4*NUM_CH+auto_ss_state_idx-1];
+            auto_ss_ack              = 1'b1;
+          end
+          if (auto_ss_state_idx >= (5 * NUM_CH + 1) && auto_ss_state_idx < (6 * NUM_CH + 1)) begin
+            auto_ss_data_out[3-1:0] = reg_pms[-5*NUM_CH+auto_ss_state_idx-1];
+            auto_ss_ack             = 1'b1;
+          end
+          if (auto_ss_state_idx >= (6 * NUM_CH + 1) && auto_ss_state_idx < (7 * NUM_CH + 1)) begin
+            auto_ss_data_out[2-1:0] = reg_rl[-6*NUM_CH+auto_ss_state_idx-1];
+            auto_ss_ack             = 1'b1;
+          end
+        end
+      endcase
     end
-    for (
-        auto_ss_idx = 0; auto_ss_idx < (NUM_CH); auto_ss_idx = auto_ss_idx + 1
-    ) begin : blk_asg_reg_ams
-      assign auto_ss_out[22*NUM_CH+2*auto_ss_idx+:2] = reg_ams[auto_ss_idx];
-    end
-    for (
-        auto_ss_idx = 0; auto_ss_idx < (NUM_CH); auto_ss_idx = auto_ss_idx + 1
-    ) begin : blk_asg_reg_block
-      assign auto_ss_out[3*auto_ss_idx+:3] = reg_block[auto_ss_idx];
-    end
-    for (
-        auto_ss_idx = 0; auto_ss_idx < (NUM_CH); auto_ss_idx = auto_ss_idx + 1
-    ) begin : blk_asg_reg_fb
-      assign auto_ss_out[14*NUM_CH+3*auto_ss_idx+:3] = reg_fb[auto_ss_idx];
-    end
-    for (
-        auto_ss_idx = 0; auto_ss_idx < (NUM_CH); auto_ss_idx = auto_ss_idx + 1
-    ) begin : blk_asg_reg_fnum
-      assign auto_ss_out[3*NUM_CH+11*auto_ss_idx+:11] = reg_fnum[auto_ss_idx];
-    end
-    for (
-        auto_ss_idx = 0; auto_ss_idx < (NUM_CH); auto_ss_idx = auto_ss_idx + 1
-    ) begin : blk_asg_reg_pms
-      assign auto_ss_out[24*NUM_CH+3*auto_ss_idx+:3] = reg_pms[auto_ss_idx];
-    end
-    for (
-        auto_ss_idx = 0; auto_ss_idx < (NUM_CH); auto_ss_idx = auto_ss_idx + 1
-    ) begin : blk_asg_reg_rl
-      assign auto_ss_out[20*NUM_CH+2*auto_ss_idx+:2] = reg_rl[auto_ss_idx];
-    end
-
-  endgenerate
+  end
 
 
 
@@ -870,21 +1046,36 @@ module jt12_csr (  // Circular Shift Register + input mux
     input  [43:0] shift_in,
     output [43:0] shift_out,
 
-    input                         up_tl,
-    input                         up_dt1,
-    input                         up_ks_ar,
-    input                         up_amen_dr,
-    input                         up_sr,
-    input                         up_sl_rr,
-    input                         up_ssgeg,
-    input                         update_op_I,
-    input                         update_op_II,
-    input                         update_op_IV,
-    input  [12*regop_width - 1:0] auto_ss_in,
-    input                         auto_ss_wr,
-    output [12*regop_width - 1:0] auto_ss_out
+    input               up_tl,
+    input               up_dt1,
+    input               up_ks_ar,
+    input               up_amen_dr,
+    input               up_sr,
+    input               up_sl_rr,
+    input               up_ssgeg,
+    input               update_op_I,
+    input               update_op_II,
+    input               update_op_IV,
+    input               auto_ss_rd,
+    input               auto_ss_wr,
+    input        [31:0] auto_ss_data_in,
+    input        [ 7:0] auto_ss_device_idx,
+    input        [15:0] auto_ss_state_idx,
+    input        [ 7:0] auto_ss_base_device_idx,
+    output logic [31:0] auto_ss_data_out,
+    output logic        auto_ss_ack
 
 );
+  assign auto_ss_ack      = auto_ss_u_regch_ack;
+
+  assign auto_ss_data_out = auto_ss_u_regch_data_out;
+
+  wire        auto_ss_u_regch_ack;
+
+  wire [31:0] auto_ss_u_regch_data_out;
+
+  wire        device_match = (auto_ss_device_idx == auto_ss_base_device_idx);
+
   genvar auto_ss_idx;
 
 
@@ -896,14 +1087,19 @@ module jt12_csr (  // Circular Shift Register + input mux
       .width (regop_width),
       .stages(12)
   ) u_regch (
-      .clk        (clk),
-      .clk_en     (clk_en),
-      .rst        (rst),
-      .din        (regop_in),
-      .drop       (shift_out),
-      .auto_ss_in (auto_ss_in[0+:12*regop_width]),
-      .auto_ss_out(auto_ss_out[0+:12*regop_width]),
-      .auto_ss_wr (auto_ss_wr)
+      .clk                    (clk),
+      .clk_en                 (clk_en),
+      .rst                    (rst),
+      .din                    (regop_in),
+      .drop                   (shift_out),
+      .auto_ss_rd             (auto_ss_rd),
+      .auto_ss_wr             (auto_ss_wr),
+      .auto_ss_data_in        (auto_ss_data_in),
+      .auto_ss_device_idx     (auto_ss_device_idx),
+      .auto_ss_state_idx      (auto_ss_state_idx),
+      .auto_ss_base_device_idx(auto_ss_base_device_idx + 1),
+      .auto_ss_data_out       (auto_ss_u_regch_data_out),
+      .auto_ss_ack            (auto_ss_u_regch_ack)
 
   );
 
@@ -1023,12 +1219,43 @@ module jt12_reg (
     output       amsen_IV,
 
     // envelope operation
-    output                      keyon_I,
-    input  [27*num_ch + 1668:0] auto_ss_in,
-    input                       auto_ss_wr,
-    output [27*num_ch + 1668:0] auto_ss_out
+    output              keyon_I,
+    input               auto_ss_rd,
+    input               auto_ss_wr,
+    input        [31:0] auto_ss_data_in,
+    input        [ 7:0] auto_ss_device_idx,
+    input        [15:0] auto_ss_state_idx,
+    input        [ 7:0] auto_ss_base_device_idx,
+    output logic [31:0] auto_ss_data_out,
+    output logic        auto_ss_ack
 
 );
+  assign auto_ss_ack = auto_ss_local_ack | auto_ss_u_kon_ack | auto_ss_u_regch_ack | auto_ss_u_csr0_ack | auto_ss_u_csr1_ack;
+
+  assign auto_ss_data_out = auto_ss_local_data_out | auto_ss_u_kon_data_out | auto_ss_u_regch_data_out | auto_ss_u_csr0_data_out | auto_ss_u_csr1_data_out;
+
+  logic        auto_ss_local_ack;
+
+  logic [31:0] auto_ss_local_data_out;
+
+  wire         auto_ss_u_csr1_ack;
+
+  wire  [31:0] auto_ss_u_csr1_data_out;
+
+  wire         auto_ss_u_csr0_ack;
+
+  wire  [31:0] auto_ss_u_csr0_data_out;
+
+  wire         auto_ss_u_regch_ack;
+
+  wire  [31:0] auto_ss_u_regch_data_out;
+
+  wire         auto_ss_u_kon_ack;
+
+  wire  [31:0] auto_ss_u_kon_data_out;
+
+  wire         device_match = (auto_ss_device_idx == auto_ss_base_device_idx);
+
   genvar auto_ss_idx;
 
 
@@ -1056,16 +1283,17 @@ module jt12_reg (
       fb_II <= fb_I;
       ch6op <= next_ch == 3'd6;
     end
-    if (auto_ss_wr) begin
-      integer auto_ss_idx;
-      ch6op <= auto_ss_in[0];
-      fb_II <= auto_ss_in[4+:3];
+    if (auto_ss_wr && device_match) begin
+      case (auto_ss_state_idx)
+        0: begin
+          fb_II <= auto_ss_data_in[2:0];
+          ch6op <= auto_ss_data_in[5];
+        end
+        default: begin
+        end
+      endcase
     end
   end
-
-
-  assign auto_ss_out[0]    = ch6op;
-  assign auto_ss_out[4+:3] = fb_II;
 
 
 
@@ -1147,16 +1375,33 @@ module jt12_reg (
         zero             <= next == 5'd0;
       end
     end
-    if (auto_ss_wr) begin
-      integer auto_ss_idx;
-      cur_op <= auto_ss_in[1+:2];
-      zero   <= auto_ss_in[3];
+    if (auto_ss_wr && device_match) begin
+      case (auto_ss_state_idx)
+        0: begin
+          cur_op <= auto_ss_data_in[4:3];
+          zero   <= auto_ss_data_in[6];
+        end
+        default: begin
+        end
+      endcase
     end
   end
 
 
-  assign auto_ss_out[1+:2] = cur_op;
-  assign auto_ss_out[3]    = zero;
+  always_comb begin
+    auto_ss_local_data_out = 32'h0;
+    auto_ss_local_ack      = 1'b0;
+    if (auto_ss_rd && device_match) begin
+      case (auto_ss_state_idx)
+        0: begin
+          auto_ss_local_data_out[6:0] = {zero, ch6op, cur_op, fb_II};
+          auto_ss_local_ack           = 1'b1;
+        end
+        default: begin
+        end
+      endcase
+    end
+  end
 
 
 
@@ -1176,10 +1421,15 @@ module jt12_reg (
       // .flag_A      ( flag_A    ),
       .overflow_A(overflow_A),
 
-      .keyon_I    (keyon_I),
-      .auto_ss_in (auto_ss_in[7+:51]),
-      .auto_ss_out(auto_ss_out[7+:51]),
-      .auto_ss_wr (auto_ss_wr)
+      .keyon_I                (keyon_I),
+      .auto_ss_rd             (auto_ss_rd),
+      .auto_ss_wr             (auto_ss_wr),
+      .auto_ss_data_in        (auto_ss_data_in),
+      .auto_ss_device_idx     (auto_ss_device_idx),
+      .auto_ss_state_idx      (auto_ss_state_idx),
+      .auto_ss_base_device_idx(auto_ss_base_device_idx + 1),
+      .auto_ss_data_out       (auto_ss_u_kon_data_out),
+      .auto_ss_ack            (auto_ss_u_kon_ack)
 
   );
 
@@ -1208,25 +1458,30 @@ module jt12_reg (
       wire [43:0] shift_middle;
 
       jt12_csr u_csr0 (
-          .rst         (rst),
-          .clk         (clk),
-          .clk_en      (clk_en),
-          .din         (din),
-          .shift_in    (shift_out),
-          .shift_out   (shift_middle),
-          .up_tl       (up_tl),
-          .up_dt1      (up_dt1),
-          .up_ks_ar    (up_ks_ar),
-          .up_amen_dr  (up_amen_dr),
-          .up_sr       (up_sr),
-          .up_sl_rr    (up_sl_rr),
-          .up_ssgeg    (up_ssgeg),
-          .update_op_I (update_op_I),
-          .update_op_II(update_op_II),
-          .update_op_IV(update_op_IV),
-          .auto_ss_in  (auto_ss_in[27*num_ch+85+:528]),
-          .auto_ss_out (auto_ss_out[27*num_ch+85+:528]),
-          .auto_ss_wr  (auto_ss_wr)
+          .rst                    (rst),
+          .clk                    (clk),
+          .clk_en                 (clk_en),
+          .din                    (din),
+          .shift_in               (shift_out),
+          .shift_out              (shift_middle),
+          .up_tl                  (up_tl),
+          .up_dt1                 (up_dt1),
+          .up_ks_ar               (up_ks_ar),
+          .up_amen_dr             (up_amen_dr),
+          .up_sr                  (up_sr),
+          .up_sl_rr               (up_sl_rr),
+          .up_ssgeg               (up_ssgeg),
+          .update_op_I            (update_op_I),
+          .update_op_II           (update_op_II),
+          .update_op_IV           (update_op_IV),
+          .auto_ss_rd             (auto_ss_rd),
+          .auto_ss_wr             (auto_ss_wr),
+          .auto_ss_data_in        (auto_ss_data_in),
+          .auto_ss_device_idx     (auto_ss_device_idx),
+          .auto_ss_state_idx      (auto_ss_state_idx),
+          .auto_ss_base_device_idx(auto_ss_base_device_idx + 8),
+          .auto_ss_data_out       (auto_ss_u_csr0_data_out),
+          .auto_ss_ack            (auto_ss_u_csr0_ack)
 
       );
 
@@ -1235,49 +1490,59 @@ module jt12_reg (
       wire up_midop_IV = {~cur[4], cur[3:0]} == req_opch_IV;
 
       jt12_csr u_csr1 (
-          .rst         (rst),
-          .clk         (clk),
-          .clk_en      (clk_en),
-          .din         (din),
-          .shift_in    (shift_middle),
-          .shift_out   (shift_out),
-          .up_tl       (up_tl),
-          .up_dt1      (up_dt1),
-          .up_ks_ar    (up_ks_ar),
-          .up_amen_dr  (up_amen_dr),
-          .up_sr       (up_sr),
-          .up_sl_rr    (up_sl_rr),
-          .up_ssgeg    (up_ssgeg),
+          .rst                    (rst),
+          .clk                    (clk),
+          .clk_en                 (clk_en),
+          .din                    (din),
+          .shift_in               (shift_middle),
+          .shift_out              (shift_out),
+          .up_tl                  (up_tl),
+          .up_dt1                 (up_dt1),
+          .up_ks_ar               (up_ks_ar),
+          .up_amen_dr             (up_amen_dr),
+          .up_sr                  (up_sr),
+          .up_sl_rr               (up_sl_rr),
+          .up_ssgeg               (up_ssgeg),
           // update in the middle:
-          .update_op_I (up_midop_I),
-          .update_op_II(up_midop_II),
-          .update_op_IV(up_midop_IV),
-          .auto_ss_in  (auto_ss_in[27*num_ch+613+:528]),
-          .auto_ss_out (auto_ss_out[27*num_ch+613+:528]),
-          .auto_ss_wr  (auto_ss_wr)
+          .update_op_I            (up_midop_I),
+          .update_op_II           (up_midop_II),
+          .update_op_IV           (up_midop_IV),
+          .auto_ss_rd             (auto_ss_rd),
+          .auto_ss_wr             (auto_ss_wr),
+          .auto_ss_data_in        (auto_ss_data_in),
+          .auto_ss_device_idx     (auto_ss_device_idx),
+          .auto_ss_state_idx      (auto_ss_state_idx),
+          .auto_ss_base_device_idx(auto_ss_base_device_idx + 10),
+          .auto_ss_data_out       (auto_ss_u_csr1_data_out),
+          .auto_ss_ack            (auto_ss_u_csr1_ack)
 
       );
     end else begin  // YM2203 only has one CSR
       jt12_csr u_csr0 (
-          .rst         (rst),
-          .clk         (clk),
-          .clk_en      (clk_en),
-          .din         (din),
-          .shift_in    (shift_out),
-          .shift_out   (shift_out),
-          .up_tl       (up_tl),
-          .up_dt1      (up_dt1),
-          .up_ks_ar    (up_ks_ar),
-          .up_amen_dr  (up_amen_dr),
-          .up_sr       (up_sr),
-          .up_sl_rr    (up_sl_rr),
-          .up_ssgeg    (up_ssgeg),
-          .update_op_I (update_op_I),
-          .update_op_II(update_op_II),
-          .update_op_IV(update_op_IV),
-          .auto_ss_in  (auto_ss_in[27*num_ch+1141+:528]),
-          .auto_ss_out (auto_ss_out[27*num_ch+1141+:528]),
-          .auto_ss_wr  (auto_ss_wr)
+          .rst                    (rst),
+          .clk                    (clk),
+          .clk_en                 (clk_en),
+          .din                    (din),
+          .shift_in               (shift_out),
+          .shift_out              (shift_out),
+          .up_tl                  (up_tl),
+          .up_dt1                 (up_dt1),
+          .up_ks_ar               (up_ks_ar),
+          .up_amen_dr             (up_amen_dr),
+          .up_sr                  (up_sr),
+          .up_sl_rr               (up_sl_rr),
+          .up_ssgeg               (up_ssgeg),
+          .update_op_I            (update_op_I),
+          .update_op_II           (update_op_II),
+          .update_op_IV           (update_op_IV),
+          .auto_ss_rd             (auto_ss_rd),
+          .auto_ss_wr             (auto_ss_wr),
+          .auto_ss_data_in        (auto_ss_data_in),
+          .auto_ss_device_idx     (auto_ss_device_idx),
+          .auto_ss_state_idx      (auto_ss_state_idx),
+          .auto_ss_base_device_idx(auto_ss_base_device_idx + 12),
+          .auto_ss_data_out       (auto_ss_u_csr0_data_out),
+          .auto_ss_ack            (auto_ss_u_csr0_ack)
 
       );
     end  // else
@@ -1303,17 +1568,22 @@ module jt12_reg (
       .up_alg    (up_alg),
       .up_pms    (up_pms),
 
-      .ch         (next_ch),                        // next active channel
-      .block      (block_I_raw),
-      .fnum       (fnum_I_raw),
-      .fb         (fb_I),
-      .alg        (alg_I),
-      .rl         (rl),
-      .ams_IV     (ams_IV),
-      .pms        (pms_I),
-      .auto_ss_in (auto_ss_in[58+:27*num_ch+27]),
-      .auto_ss_out(auto_ss_out[58+:27*num_ch+27]),
-      .auto_ss_wr (auto_ss_wr)
+      .ch                     (next_ch),                      // next active channel
+      .block                  (block_I_raw),
+      .fnum                   (fnum_I_raw),
+      .fb                     (fb_I),
+      .alg                    (alg_I),
+      .rl                     (rl),
+      .ams_IV                 (ams_IV),
+      .pms                    (pms_I),
+      .auto_ss_rd             (auto_ss_rd),
+      .auto_ss_wr             (auto_ss_wr),
+      .auto_ss_data_in        (auto_ss_data_in),
+      .auto_ss_device_idx     (auto_ss_device_idx),
+      .auto_ss_state_idx      (auto_ss_state_idx),
+      .auto_ss_base_device_idx(auto_ss_base_device_idx + 7),
+      .auto_ss_data_out       (auto_ss_u_regch_data_out),
+      .auto_ss_ack            (auto_ss_u_regch_ack)
 
   );
 
@@ -1425,15 +1695,38 @@ module jt12_mmr (
     output s4_enters,
 
     // PSG interace
-    output     [               3:0] psg_addr,
-    output     [               7:0] psg_data,
-    output reg                      psg_wr_n,
-    input      [               7:0] debug_bus,
-    input      [27*num_ch + 1926:0] auto_ss_in,
-    input                           auto_ss_wr,
-    output     [27*num_ch + 1926:0] auto_ss_out
+    output       [ 3:0] psg_addr,
+    output       [ 7:0] psg_data,
+    output reg          psg_wr_n,
+    input        [ 7:0] debug_bus,
+    input               auto_ss_rd,
+    input               auto_ss_wr,
+    input        [31:0] auto_ss_data_in,
+    input        [ 7:0] auto_ss_device_idx,
+    input        [15:0] auto_ss_state_idx,
+    input        [ 7:0] auto_ss_base_device_idx,
+    output logic [31:0] auto_ss_data_out,
+    output logic        auto_ss_ack
 
 );
+  assign auto_ss_ack = auto_ss_local_ack | auto_ss_u_div_ack | auto_ss_u_reg_ack;
+
+  assign auto_ss_data_out = auto_ss_local_data_out | auto_ss_u_div_data_out | auto_ss_u_reg_data_out;
+
+  logic        auto_ss_local_ack;
+
+  logic [31:0] auto_ss_local_data_out;
+
+  wire         auto_ss_u_reg_ack;
+
+  wire  [31:0] auto_ss_u_reg_data_out;
+
+  wire         auto_ss_u_div_ack;
+
+  wire  [31:0] auto_ss_u_div_data_out;
+
+  wire         device_match = (auto_ss_device_idx == auto_ss_base_device_idx);
+
   genvar auto_ss_idx;
 
 
@@ -1442,19 +1735,24 @@ module jt12_mmr (
   jt12_div #(
       .use_ssg(use_ssg)
   ) u_div (
-      .rst        (rst),
-      .clk        (clk),
-      .cen        (cen),
-      .div_setting(div_setting),
-      .clk_en     (clk_en),
-      .clk_en_2   (clk_en_2),
-      .clk_en_ssg (clk_en_ssg),
-      .clk_en_666 (clk_en_666),
-      .clk_en_111 (clk_en_111),
-      .clk_en_55  (clk_en_55),
-      .auto_ss_in (auto_ss_in[227+:31]),
-      .auto_ss_out(auto_ss_out[227+:31]),
-      .auto_ss_wr (auto_ss_wr)
+      .rst                    (rst),
+      .clk                    (clk),
+      .cen                    (cen),
+      .div_setting            (div_setting),
+      .clk_en                 (clk_en),
+      .clk_en_2               (clk_en_2),
+      .clk_en_ssg             (clk_en_ssg),
+      .clk_en_666             (clk_en_666),
+      .clk_en_111             (clk_en_111),
+      .clk_en_55              (clk_en_55),
+      .auto_ss_rd             (auto_ss_rd),
+      .auto_ss_wr             (auto_ss_wr),
+      .auto_ss_data_in        (auto_ss_data_in),
+      .auto_ss_device_idx     (auto_ss_device_idx),
+      .auto_ss_state_idx      (auto_ss_state_idx),
+      .auto_ss_base_device_idx(auto_ss_base_device_idx + 1),
+      .auto_ss_data_out       (auto_ss_u_div_data_out),
+      .auto_ss_ack            (auto_ss_u_div_ack)
 
   );
 
@@ -1734,108 +2032,77 @@ reg     irq_zero_en, irq_brdy_en, irq_eos_en,
         end
       end
     end
-    if (auto_ss_wr) begin
-      integer auto_ss_idx;
-      acmd_on_b         <= auto_ss_in[148];
-      acmd_rep_b        <= auto_ss_in[149];
-      acmd_rst_b        <= auto_ss_in[150];
-      acmd_up_b         <= auto_ss_in[151];
-      addr_a            <= auto_ss_in[115+:16];
-      adeltan_b         <= auto_ss_in[186+:16];
-      aeg_b             <= auto_ss_in[202+:8];
-      aend_b            <= auto_ss_in[170+:16];
-      alr_b             <= auto_ss_in[152+:2];
-      aon_a             <= auto_ss_in[101+:8];
-      astart_b          <= auto_ss_in[154+:16];
-      atl_a             <= auto_ss_in[109+:6];
-      block_ch3op1      <= auto_ss_in[27+:3];
-      block_ch3op2      <= auto_ss_in[21+:3];
-      block_ch3op3      <= auto_ss_in[24+:3];
-      ch_din            <= auto_ss_in[49+:8];
-      clr_flag_B        <= auto_ss_in[86];
-      csm               <= auto_ss_in[19];
-      div_setting       <= auto_ss_in[88+:2];
-      effect            <= auto_ss_in[20];
-      eg_stop           <= auto_ss_in[225];
-      fast_timers       <= auto_ss_in[87];
-      flag_ctl          <= auto_ss_in[210+:7];
-      flag_mask         <= auto_ss_in[217+:7];
-      latch_fnum        <= auto_ss_in[30+:6];
-      lfo_en            <= auto_ss_in[67];
-      lfo_freq          <= auto_ss_in[64+:3];
-      lracl             <= auto_ss_in[131+:8];
-      op_din            <= auto_ss_in[41+:8];
-      part              <= auto_ss_in[57];
-      pcm               <= auto_ss_in[90+:9];
-      pcm_en            <= auto_ss_in[99];
-      pcm_wr            <= auto_ss_in[100];
-      pg_stop           <= auto_ss_in[224];
-      psg_wr_n          <= auto_ss_in[226];
-      selected_register <= auto_ss_in[0+:8];
-      up_addr           <= auto_ss_in[141+:3];
-      up_aon            <= auto_ss_in[147];
-      up_ch             <= auto_ss_in[36+:3];
-      up_chreg          <= auto_ss_in[15+:3];
-      up_end            <= auto_ss_in[140];
-      up_keyon          <= auto_ss_in[18];
-      up_lracl          <= auto_ss_in[144+:3];
-      up_op             <= auto_ss_in[39+:2];
-      up_opreg          <= auto_ss_in[8+:7];
-      up_start          <= auto_ss_in[139];
-      value_A           <= auto_ss_in[68+:10];
-      value_B           <= auto_ss_in[78+:8];
+    if (auto_ss_wr && device_match) begin
+      case (auto_ss_state_idx)
+        0: begin
+          addr_a    <= auto_ss_data_in[15:0];
+          adeltan_b <= auto_ss_data_in[31:16];
+        end
+        1: begin
+          aend_b   <= auto_ss_data_in[15:0];
+          astart_b <= auto_ss_data_in[31:16];
+        end
+        2: begin
+          value_A <= auto_ss_data_in[9:0];
+          pcm     <= auto_ss_data_in[18:10];
+          aeg_b   <= auto_ss_data_in[26:19];
+        end
+        3: begin
+          aon_a  <= auto_ss_data_in[7:0];
+          ch_din <= auto_ss_data_in[15:8];
+          lracl  <= auto_ss_data_in[23:16];
+          op_din <= auto_ss_data_in[31:24];
+        end
+        4: begin
+          selected_register <= auto_ss_data_in[7:0];
+          value_B           <= auto_ss_data_in[15:8];
+          flag_ctl          <= auto_ss_data_in[22:16];
+          flag_mask         <= auto_ss_data_in[29:23];
+        end
+        5: begin
+          up_opreg     <= auto_ss_data_in[6:0];
+          atl_a        <= auto_ss_data_in[12:7];
+          latch_fnum   <= auto_ss_data_in[18:13];
+          block_ch3op1 <= auto_ss_data_in[26:24];
+          block_ch3op2 <= auto_ss_data_in[29:27];
+        end
+        6: begin
+          block_ch3op3 <= auto_ss_data_in[2:0];
+          lfo_freq     <= auto_ss_data_in[5:3];
+          up_addr      <= auto_ss_data_in[8:6];
+          up_ch        <= auto_ss_data_in[11:9];
+          up_chreg     <= auto_ss_data_in[14:12];
+          up_lracl     <= auto_ss_data_in[17:15];
+          alr_b        <= auto_ss_data_in[19:18];
+          div_setting  <= auto_ss_data_in[21:20];
+          up_op        <= auto_ss_data_in[23:22];
+          acmd_on_b    <= auto_ss_data_in[24];
+          acmd_rep_b   <= auto_ss_data_in[25];
+          acmd_rst_b   <= auto_ss_data_in[26];
+          acmd_up_b    <= auto_ss_data_in[27];
+          clr_flag_B   <= auto_ss_data_in[28];
+          csm          <= auto_ss_data_in[29];
+          effect       <= auto_ss_data_in[30];
+          eg_stop      <= auto_ss_data_in[31];
+        end
+        7: begin
+          fast_timers <= auto_ss_data_in[0];
+          lfo_en      <= auto_ss_data_in[1];
+          part        <= auto_ss_data_in[2];
+          pcm_en      <= auto_ss_data_in[3];
+          pcm_wr      <= auto_ss_data_in[4];
+          pg_stop     <= auto_ss_data_in[5];
+          psg_wr_n    <= auto_ss_data_in[6];
+          up_aon      <= auto_ss_data_in[7];
+          up_end      <= auto_ss_data_in[8];
+          up_keyon    <= auto_ss_data_in[9];
+          up_start    <= auto_ss_data_in[10];
+        end
+        default: begin
+        end
+      endcase
     end
   end
-
-
-  assign auto_ss_out[148]     = acmd_on_b;
-  assign auto_ss_out[149]     = acmd_rep_b;
-  assign auto_ss_out[150]     = acmd_rst_b;
-  assign auto_ss_out[151]     = acmd_up_b;
-  assign auto_ss_out[115+:16] = addr_a;
-  assign auto_ss_out[186+:16] = adeltan_b;
-  assign auto_ss_out[202+:8]  = aeg_b;
-  assign auto_ss_out[170+:16] = aend_b;
-  assign auto_ss_out[152+:2]  = alr_b;
-  assign auto_ss_out[101+:8]  = aon_a;
-  assign auto_ss_out[154+:16] = astart_b;
-  assign auto_ss_out[109+:6]  = atl_a;
-  assign auto_ss_out[27+:3]   = block_ch3op1;
-  assign auto_ss_out[21+:3]   = block_ch3op2;
-  assign auto_ss_out[24+:3]   = block_ch3op3;
-  assign auto_ss_out[49+:8]   = ch_din;
-  assign auto_ss_out[86]      = clr_flag_B;
-  assign auto_ss_out[19]      = csm;
-  assign auto_ss_out[88+:2]   = div_setting;
-  assign auto_ss_out[20]      = effect;
-  assign auto_ss_out[225]     = eg_stop;
-  assign auto_ss_out[87]      = fast_timers;
-  assign auto_ss_out[210+:7]  = flag_ctl;
-  assign auto_ss_out[217+:7]  = flag_mask;
-  assign auto_ss_out[30+:6]   = latch_fnum;
-  assign auto_ss_out[67]      = lfo_en;
-  assign auto_ss_out[64+:3]   = lfo_freq;
-  assign auto_ss_out[131+:8]  = lracl;
-  assign auto_ss_out[41+:8]   = op_din;
-  assign auto_ss_out[57]      = part;
-  assign auto_ss_out[90+:9]   = pcm;
-  assign auto_ss_out[99]      = pcm_en;
-  assign auto_ss_out[100]     = pcm_wr;
-  assign auto_ss_out[224]     = pg_stop;
-  assign auto_ss_out[226]     = psg_wr_n;
-  assign auto_ss_out[0+:8]    = selected_register;
-  assign auto_ss_out[141+:3]  = up_addr;
-  assign auto_ss_out[147]     = up_aon;
-  assign auto_ss_out[36+:3]   = up_ch;
-  assign auto_ss_out[15+:3]   = up_chreg;
-  assign auto_ss_out[140]     = up_end;
-  assign auto_ss_out[18]      = up_keyon;
-  assign auto_ss_out[144+:3]  = up_lracl;
-  assign auto_ss_out[39+:2]   = up_op;
-  assign auto_ss_out[8+:7]    = up_opreg;
-  assign auto_ss_out[139]     = up_start;
-  assign auto_ss_out[68+:10]  = value_A;
-  assign auto_ss_out[78+:8]   = value_B;
 
 
 
@@ -1846,10 +2113,17 @@ reg     irq_zero_en, irq_brdy_en, irq_eos_en,
     if (rst) begin
       busy     <= 0;
       busy_cnt <= 0;
-    end else if (auto_ss_wr) begin
-      integer auto_ss_idx;
-      busy     <= auto_ss_in[63];
-      busy_cnt <= auto_ss_in[58+:5];
+    end else if (auto_ss_wr && device_match) begin
+      case (auto_ss_state_idx)
+        5: begin
+          busy_cnt <= auto_ss_data_in[23:19];
+        end
+        7: begin
+          busy <= auto_ss_data_in[11];
+        end
+        default: begin
+        end
+      endcase
     end else begin
       if (write & addr[0]) begin
         busy     <= 1;
@@ -1860,8 +2134,81 @@ reg     irq_zero_en, irq_brdy_en, irq_eos_en,
       end
     end
   end
-  assign auto_ss_out[63]    = busy;
-  assign auto_ss_out[58+:5] = busy_cnt;
+  always_comb begin
+    auto_ss_local_data_out = 32'h0;
+    auto_ss_local_ack      = 1'b0;
+    if (auto_ss_rd && device_match) begin
+      case (auto_ss_state_idx)
+        0: begin
+          auto_ss_local_data_out[31:0] = {adeltan_b, addr_a};
+          auto_ss_local_ack            = 1'b1;
+        end
+        1: begin
+          auto_ss_local_data_out[31:0] = {astart_b, aend_b};
+          auto_ss_local_ack            = 1'b1;
+        end
+        2: begin
+          auto_ss_local_data_out[26:0] = {aeg_b, pcm, value_A};
+          auto_ss_local_ack            = 1'b1;
+        end
+        3: begin
+          auto_ss_local_data_out[31:0] = {op_din, lracl, ch_din, aon_a};
+          auto_ss_local_ack            = 1'b1;
+        end
+        4: begin
+          auto_ss_local_data_out[29:0] = {flag_mask, flag_ctl, value_B, selected_register};
+          auto_ss_local_ack            = 1'b1;
+        end
+        5: begin
+          auto_ss_local_data_out[29:0] = {
+            block_ch3op2, block_ch3op1, busy_cnt, latch_fnum, atl_a, up_opreg
+          };
+          auto_ss_local_ack = 1'b1;
+        end
+        6: begin
+          auto_ss_local_data_out[31:0] = {
+            eg_stop,
+            effect,
+            csm,
+            clr_flag_B,
+            acmd_up_b,
+            acmd_rst_b,
+            acmd_rep_b,
+            acmd_on_b,
+            up_op,
+            div_setting,
+            alr_b,
+            up_lracl,
+            up_chreg,
+            up_ch,
+            up_addr,
+            lfo_freq,
+            block_ch3op3
+          };
+          auto_ss_local_ack = 1'b1;
+        end
+        7: begin
+          auto_ss_local_data_out[11:0] = {
+            busy,
+            up_start,
+            up_keyon,
+            up_end,
+            up_aon,
+            psg_wr_n,
+            pg_stop,
+            pcm_wr,
+            pcm_en,
+            part,
+            lfo_en,
+            fast_timers
+          };
+          auto_ss_local_ack = 1'b1;
+        end
+        default: begin
+        end
+      endcase
+    end
+  end
 
 
 
@@ -1943,14 +2290,19 @@ reg     irq_zero_en, irq_brdy_en, irq_eos_en,
       .alg_I   (alg_I),
       .keyon_I (keyon_I),
 
-      .zero       (zero),
-      .s1_enters  (s1_enters),
-      .s2_enters  (s2_enters),
-      .s3_enters  (s3_enters),
-      .s4_enters  (s4_enters),
-      .auto_ss_in (auto_ss_in[258+:27*num_ch+1669]),
-      .auto_ss_out(auto_ss_out[258+:27*num_ch+1669]),
-      .auto_ss_wr (auto_ss_wr)
+      .zero                   (zero),
+      .s1_enters              (s1_enters),
+      .s2_enters              (s2_enters),
+      .s3_enters              (s3_enters),
+      .s4_enters              (s4_enters),
+      .auto_ss_rd             (auto_ss_rd),
+      .auto_ss_wr             (auto_ss_wr),
+      .auto_ss_data_in        (auto_ss_data_in),
+      .auto_ss_device_idx     (auto_ss_device_idx),
+      .auto_ss_state_idx      (auto_ss_state_idx),
+      .auto_ss_base_device_idx(auto_ss_base_device_idx + 2),
+      .auto_ss_data_out       (auto_ss_u_reg_data_out),
+      .auto_ss_ack            (auto_ss_u_reg_ack)
 
   );
 
@@ -1964,20 +2316,27 @@ module jt12_timer #(
               FW      = 4,  // number of bits for the free-running counter
               FREE_EN = 0   // enables a 4-bit free enable count
 ) (
-    input                      rst,
-    input                      clk,
-    input                      cen,
-    input                      zero,
-    input      [       CW-1:0] start_value,
-    input                      load,
-    input                      clr_flag,
-    output reg                 flag,
-    output reg                 overflow,
-    input      [CW + FW + 1:0] auto_ss_in,
-    input                      auto_ss_wr,
-    output     [CW + FW + 1:0] auto_ss_out
+    input                 rst,
+    input                 clk,
+    input                 cen,
+    input                 zero,
+    input        [CW-1:0] start_value,
+    input                 load,
+    input                 clr_flag,
+    output reg            flag,
+    output reg            overflow,
+    input                 auto_ss_rd,
+    input                 auto_ss_wr,
+    input        [  31:0] auto_ss_data_in,
+    input        [   7:0] auto_ss_device_idx,
+    input        [  15:0] auto_ss_state_idx,
+    input        [   7:0] auto_ss_base_device_idx,
+    output logic [  31:0] auto_ss_data_out,
+    output logic          auto_ss_ack
 
 );
+  wire device_match = (auto_ss_device_idx == auto_ss_base_device_idx);
+
   genvar auto_ss_idx;
 
   /* verilator lint_off WIDTH */
@@ -1988,16 +2347,18 @@ module jt12_timer #(
 
   always @(posedge clk, posedge rst)
     if (rst) flag <= 1'b0;
-    else if (auto_ss_wr) begin
-      integer auto_ss_idx;
-      flag <= auto_ss_in[CW+FW+1];
+    else if (auto_ss_wr && device_match) begin
+      case (auto_ss_state_idx)
+        0: begin
+          flag <= auto_ss_data_in[0];
+        end
+        default: begin
+        end
+      endcase
     end else  /*if(cen)*/ begin
       if (clr_flag) flag <= 1'b0;
       else if (cen && zero && load && overflow) flag <= 1'b1;
     end
-  assign auto_ss_out[CW+FW+1] = flag;
-
-
 
   always @(*) begin
     {free_ov, free_next} = {1'b0, free_cnt} + 1'b1;
@@ -2011,16 +2372,16 @@ module jt12_timer #(
         cnt <= start_value;
       end else if (cen && zero && load) cnt <= overflow ? start_value : next;
     end
-    if (auto_ss_wr) begin
-      integer auto_ss_idx;
-      cnt    <= auto_ss_in[1+:CW];
-      load_l <= auto_ss_in[0];
+    if (auto_ss_wr && device_match) begin
+      case (auto_ss_state_idx)
+        0: begin
+          load_l <= auto_ss_data_in[1];
+        end
+        default: begin
+        end
+      endcase
     end
   end
-
-
-  assign auto_ss_out[1+:CW] = cnt;
-  assign auto_ss_out[0]     = load_l;
 
 
 
@@ -2033,14 +2394,25 @@ module jt12_timer #(
         free_cnt <= free_next;
       end
     end
-    if (auto_ss_wr) begin
-      integer auto_ss_idx;
-      free_cnt <= auto_ss_in[CW+1+:FW];
+    if (auto_ss_wr && device_match) begin
     end
   end
 
 
-  assign auto_ss_out[CW+1+:FW] = free_cnt;
+  always_comb begin
+    auto_ss_data_out = 32'h0;
+    auto_ss_ack      = 1'b0;
+    if (auto_ss_rd && device_match) begin
+      case (auto_ss_state_idx)
+        0: begin
+          auto_ss_data_out[1:0] = {load_l, flag};
+          auto_ss_ack           = 1'b1;
+        end
+        default: begin
+        end
+      endcase
+    end
+  end
 
 
   /* verilator lint_on WIDTH */
@@ -2050,27 +2422,46 @@ endmodule
 ///////////////////////////////////////////
 // MODULE jt12_timers
 module jt12_timers (
-    input         clk,
-    input         rst,
-    input         clk_en  /* synthesis direct_enable */,
-    input         zero,
-    input  [ 9:0] value_A,
-    input  [ 7:0] value_B,
-    input         load_A,
-    input         load_B,
-    input         clr_flag_A,
-    input         clr_flag_B,
-    input         enable_irq_A,
-    input         enable_irq_B,
-    output        flag_A,
-    output        flag_B,
-    output        overflow_A,
-    output        irq_n,
-    input  [29:0] auto_ss_in,
-    input         auto_ss_wr,
-    output [29:0] auto_ss_out
+    input               clk,
+    input               rst,
+    input               clk_en  /* synthesis direct_enable */,
+    input               zero,
+    input        [ 9:0] value_A,
+    input        [ 7:0] value_B,
+    input               load_A,
+    input               load_B,
+    input               clr_flag_A,
+    input               clr_flag_B,
+    input               enable_irq_A,
+    input               enable_irq_B,
+    output              flag_A,
+    output              flag_B,
+    output              overflow_A,
+    output              irq_n,
+    input               auto_ss_rd,
+    input               auto_ss_wr,
+    input        [31:0] auto_ss_data_in,
+    input        [ 7:0] auto_ss_device_idx,
+    input        [15:0] auto_ss_state_idx,
+    input        [ 7:0] auto_ss_base_device_idx,
+    output logic [31:0] auto_ss_data_out,
+    output logic        auto_ss_ack
 
 );
+  assign auto_ss_ack      = auto_ss_timer_A_ack | auto_ss_timer_B_ack;
+
+  assign auto_ss_data_out = auto_ss_timer_A_data_out | auto_ss_timer_B_data_out;
+
+  wire        auto_ss_timer_B_ack;
+
+  wire [31:0] auto_ss_timer_B_data_out;
+
+  wire        auto_ss_timer_A_ack;
+
+  wire [31:0] auto_ss_timer_A_data_out;
+
+  wire        device_match = (auto_ss_device_idx == auto_ss_base_device_idx);
+
   genvar auto_ss_idx;
 
 
@@ -2094,18 +2485,23 @@ wire zero       = num_ch == 6 ? zero : (zero2&zero);
   jt12_timer #(
       .CW(10)
   ) timer_A (
-      .clk        (clk),
-      .rst        (rst),
-      .cen        (clk_en),
-      .zero       (zero),
-      .start_value(value_A),
-      .load       (load_A),
-      .clr_flag   (clr_flag_A),
-      .flag       (flag_A),
-      .overflow   (overflow_A),
-      .auto_ss_in (auto_ss_in[0+:16]),
-      .auto_ss_out(auto_ss_out[0+:16]),
-      .auto_ss_wr (auto_ss_wr)
+      .clk                    (clk),
+      .rst                    (rst),
+      .cen                    (clk_en),
+      .zero                   (zero),
+      .start_value            (value_A),
+      .load                   (load_A),
+      .clr_flag               (clr_flag_A),
+      .flag                   (flag_A),
+      .overflow               (overflow_A),
+      .auto_ss_rd             (auto_ss_rd),
+      .auto_ss_wr             (auto_ss_wr),
+      .auto_ss_data_in        (auto_ss_data_in),
+      .auto_ss_device_idx     (auto_ss_device_idx),
+      .auto_ss_state_idx      (auto_ss_state_idx),
+      .auto_ss_base_device_idx(auto_ss_base_device_idx + 1),
+      .auto_ss_data_out       (auto_ss_timer_A_data_out),
+      .auto_ss_ack            (auto_ss_timer_A_ack)
 
   );
 
@@ -2113,18 +2509,23 @@ wire zero       = num_ch == 6 ? zero : (zero2&zero);
       .CW     (8),
       .FREE_EN(1)
   ) timer_B (
-      .clk        (clk),
-      .rst        (rst),
-      .cen        (clk_en),
-      .zero       (zero),
-      .start_value(value_B),
-      .load       (load_B),
-      .clr_flag   (clr_flag_B),
-      .flag       (flag_B),
-      .overflow   (),
-      .auto_ss_in (auto_ss_in[16+:14]),
-      .auto_ss_out(auto_ss_out[16+:14]),
-      .auto_ss_wr (auto_ss_wr)
+      .clk                    (clk),
+      .rst                    (rst),
+      .cen                    (clk_en),
+      .zero                   (zero),
+      .start_value            (value_B),
+      .load                   (load_B),
+      .clr_flag               (clr_flag_B),
+      .flag                   (flag_B),
+      .overflow               (),
+      .auto_ss_rd             (auto_ss_rd),
+      .auto_ss_wr             (auto_ss_wr),
+      .auto_ss_data_in        (auto_ss_data_in),
+      .auto_ss_device_idx     (auto_ss_device_idx),
+      .auto_ss_state_idx      (auto_ss_state_idx),
+      .auto_ss_base_device_idx(auto_ss_base_device_idx + 2),
+      .auto_ss_data_out       (auto_ss_timer_B_data_out),
+      .auto_ss_ack            (auto_ss_timer_B_ack)
 
   );
 
@@ -2498,13 +2899,36 @@ module jt12_pg (
     input        pg_rst_II,
     input        pg_stop,                                // not implemented
 
-    output reg [             4:0] keycode_II,
-    output     [             9:0] phase_VIII,
-    input      [80*num_ch + 87:0] auto_ss_in,
-    input                         auto_ss_wr,
-    output     [80*num_ch + 87:0] auto_ss_out
+    output reg   [ 4:0] keycode_II,
+    output       [ 9:0] phase_VIII,
+    input               auto_ss_rd,
+    input               auto_ss_wr,
+    input        [31:0] auto_ss_data_in,
+    input        [ 7:0] auto_ss_device_idx,
+    input        [15:0] auto_ss_state_idx,
+    input        [ 7:0] auto_ss_base_device_idx,
+    output logic [31:0] auto_ss_data_out,
+    output logic        auto_ss_ack
 
 );
+  assign auto_ss_ack = auto_ss_local_ack | auto_ss_u_phsh_ack | auto_ss_u_pad_ack;
+
+  assign auto_ss_data_out = auto_ss_local_data_out | auto_ss_u_phsh_data_out | auto_ss_u_pad_data_out;
+
+  logic        auto_ss_local_ack;
+
+  logic [31:0] auto_ss_local_data_out;
+
+  wire         auto_ss_u_pad_ack;
+
+  wire  [31:0] auto_ss_u_pad_data_out;
+
+  wire         auto_ss_u_phsh_ack;
+
+  wire  [31:0] auto_ss_u_phsh_data_out;
+
+  wire         device_match = (auto_ss_device_idx == auto_ss_base_device_idx);
+
   genvar auto_ss_idx;
 
 
@@ -2524,18 +2948,34 @@ module jt12_pg (
       detune_mod_II <= detune_mod_I;
       phinc_II      <= phinc_I;
     end
-    if (auto_ss_wr) begin
-      integer auto_ss_idx;
-      detune_mod_II <= auto_ss_in[0+:6];
-      keycode_II    <= auto_ss_in[23+:5];
-      phinc_II      <= auto_ss_in[6+:17];
+    if (auto_ss_wr && device_match) begin
+      case (auto_ss_state_idx)
+        0: begin
+          phinc_II      <= auto_ss_data_in[16:0];
+          detune_mod_II <= auto_ss_data_in[22:17];
+          keycode_II    <= auto_ss_data_in[27:23];
+        end
+        default: begin
+        end
+      endcase
     end
   end
 
 
-  assign auto_ss_out[0+:6]  = detune_mod_II;
-  assign auto_ss_out[23+:5] = keycode_II;
-  assign auto_ss_out[6+:17] = phinc_II;
+  always_comb begin
+    auto_ss_local_data_out = 32'h0;
+    auto_ss_local_ack      = 1'b0;
+    if (auto_ss_rd && device_match) begin
+      case (auto_ss_state_idx)
+        0: begin
+          auto_ss_local_data_out[27:0] = {keycode_II, detune_mod_II, phinc_II};
+          auto_ss_local_ack            = 1'b1;
+        end
+        default: begin
+        end
+      endcase
+    end
+  end
 
 
 
@@ -2567,14 +3007,19 @@ module jt12_pg (
       .width (20),
       .stages(4 * num_ch)
   ) u_phsh (
-      .clk        (clk),
-      .clk_en     (clk_en),
-      .rst        (rst),
-      .din        (phase_in),
-      .drop       (phase_drop),
-      .auto_ss_in (auto_ss_in[28+:80*num_ch]),
-      .auto_ss_out(auto_ss_out[28+:80*num_ch]),
-      .auto_ss_wr (auto_ss_wr)
+      .clk                    (clk),
+      .clk_en                 (clk_en),
+      .rst                    (rst),
+      .din                    (phase_in),
+      .drop                   (phase_drop),
+      .auto_ss_rd             (auto_ss_rd),
+      .auto_ss_wr             (auto_ss_wr),
+      .auto_ss_data_in        (auto_ss_data_in),
+      .auto_ss_device_idx     (auto_ss_device_idx),
+      .auto_ss_state_idx      (auto_ss_state_idx),
+      .auto_ss_base_device_idx(auto_ss_base_device_idx + 1),
+      .auto_ss_data_out       (auto_ss_u_phsh_data_out),
+      .auto_ss_ack            (auto_ss_u_phsh_ack)
 
   );
 
@@ -2582,14 +3027,19 @@ module jt12_pg (
       .width (10),
       .stages(6)
   ) u_pad (
-      .clk        (clk),
-      .clk_en     (clk_en),
-      .rst        (rst),
-      .din        (phase_II),
-      .drop       (phase_VIII),
-      .auto_ss_in (auto_ss_in[80*num_ch+28+:60]),
-      .auto_ss_out(auto_ss_out[80*num_ch+28+:60]),
-      .auto_ss_wr (auto_ss_wr)
+      .clk                    (clk),
+      .clk_en                 (clk_en),
+      .rst                    (rst),
+      .din                    (phase_II),
+      .drop                   (phase_VIII),
+      .auto_ss_rd             (auto_ss_rd),
+      .auto_ss_wr             (auto_ss_wr),
+      .auto_ss_data_in        (auto_ss_data_in),
+      .auto_ss_device_idx     (auto_ss_device_idx),
+      .auto_ss_state_idx      (auto_ss_state_idx),
+      .auto_ss_base_device_idx(auto_ss_base_device_idx + 2),
+      .auto_ss_data_out       (auto_ss_u_pad_data_out),
+      .auto_ss_ack            (auto_ss_u_pad_ack)
 
   );
 
@@ -2599,16 +3049,23 @@ endmodule
 ///////////////////////////////////////////
 // MODULE jt12_eg_cnt
 module jt12_eg_cnt (
-    input             rst,
-    input             clk,
-    input             clk_en  /* synthesis direct_enable */,
-    input             zero,
-    output reg [14:0] eg_cnt,
-    input      [16:0] auto_ss_in,
-    input             auto_ss_wr,
-    output     [16:0] auto_ss_out
+    input               rst,
+    input               clk,
+    input               clk_en  /* synthesis direct_enable */,
+    input               zero,
+    output reg   [14:0] eg_cnt,
+    input               auto_ss_rd,
+    input               auto_ss_wr,
+    input        [31:0] auto_ss_data_in,
+    input        [ 7:0] auto_ss_device_idx,
+    input        [15:0] auto_ss_state_idx,
+    input        [ 7:0] auto_ss_base_device_idx,
+    output logic [31:0] auto_ss_data_out,
+    output logic        auto_ss_ack
 
 );
+  wire device_match = (auto_ss_device_idx == auto_ss_base_device_idx);
+
   genvar auto_ss_idx;
 
 
@@ -2618,10 +3075,15 @@ module jt12_eg_cnt (
     if (rst) begin
       eg_cnt_base <= 2'd0;
       eg_cnt      <= 15'd0;
-    end else if (auto_ss_wr) begin
-      integer auto_ss_idx;
-      eg_cnt      <= auto_ss_in[2+:15];
-      eg_cnt_base <= auto_ss_in[0+:2];
+    end else if (auto_ss_wr && device_match) begin
+      case (auto_ss_state_idx)
+        0: begin
+          eg_cnt      <= auto_ss_data_in[14:0];
+          eg_cnt_base <= auto_ss_data_in[16:15];
+        end
+        default: begin
+        end
+      endcase
     end else begin
       if (zero && clk_en) begin
         // envelope counter increases every 3 output samples,
@@ -2633,8 +3095,20 @@ module jt12_eg_cnt (
       end
     end
   end
-  assign auto_ss_out[2+:15] = eg_cnt;
-  assign auto_ss_out[0+:2]  = eg_cnt_base;
+  always_comb begin
+    auto_ss_data_out = 32'h0;
+    auto_ss_ack      = 1'b0;
+    if (auto_ss_rd && device_match) begin
+      case (auto_ss_state_idx)
+        0: begin
+          auto_ss_data_out[16:0] = {eg_cnt_base, eg_cnt};
+          auto_ss_ack            = 1'b1;
+        end
+        default: begin
+        end
+      endcase
+    end
+  end
 
 
 
@@ -3067,39 +3541,61 @@ module jt12_sh #(
     parameter width  = 5,
               stages = 24
 ) (
+    input                    clk,
+    input                    clk_en  /* synthesis direct_enable */,
+    input        [width-1:0] din,
+    output       [width-1:0] drop,
+    input                    auto_ss_rd,
+    input                    auto_ss_wr,
+    input        [     31:0] auto_ss_data_in,
+    input        [      7:0] auto_ss_device_idx,
+    input        [     15:0] auto_ss_state_idx,
+    input        [      7:0] auto_ss_base_device_idx,
+    output logic [     31:0] auto_ss_data_out,
+    output logic             auto_ss_ack
 
-    input  [stages*width - 1:0] auto_ss_in,
-    input                       auto_ss_wr,
-    output [stages*width - 1:0] auto_ss_out,
-    // USE_AUTO_SS
-
-    input              clk,
-    input              clk_en  /* synthesis direct_enable */,
-    input  [width-1:0] din,
-    output [width-1:0] drop
 );
+  wire device_match = (auto_ss_device_idx == auto_ss_base_device_idx);
+
+  genvar auto_ss_idx;
+
 
   reg [stages-1:0] bits[width-1:0];
+
+  always @(posedge clk) begin
+    begin
+      if (clk_en) begin
+        for (int i = 0; i < width; i = i + 1) begin
+          bits[i] <= {bits[i][stages-2:0], din[i]};
+        end
+      end
+    end
+    if (auto_ss_wr && device_match) begin
+      if (auto_ss_state_idx < (width)) begin
+        bits[auto_ss_state_idx] <= auto_ss_data_in[stages-1:0];
+      end
+    end
+  end
+
+
+  always_comb begin
+    auto_ss_data_out = 32'h0;
+    auto_ss_ack      = 1'b0;
+    if (auto_ss_rd && device_match) begin
+      if (auto_ss_state_idx < (width)) begin
+        auto_ss_data_out[stages-1:0] = bits[auto_ss_state_idx];
+        auto_ss_ack                  = 1'b1;
+      end
+    end
+  end
+
+
+
 
   genvar i;
   generate
     for (i = 0; i < width; i = i + 1) begin : bit_shifter
-      always @(posedge clk) begin
-        if (clk_en) begin
-          bits[i] <= {bits[i][stages-2:0], din[i]};
-        end
-
-
-        if (auto_ss_wr) begin
-          bits[i] <= auto_ss_in[i*stages+:stages];
-        end
-
-      end
-      assign drop[i]                       = bits[i][stages-1];
-
-
-      assign auto_ss_out[i*stages+:stages] = bits[i];
-
+      assign drop[i] = bits[i][stages-1];
     end
   endgenerate
 
@@ -3133,13 +3629,52 @@ module jt12_eg (
     input [1:0] ams_IV,
     input [6:0] tl_IV,
 
-    output reg [             9:0] eg_V,
-    output reg                    pg_rst_II,
-    input      [64*num_ch + 43:0] auto_ss_in,
-    input                         auto_ss_wr,
-    output     [64*num_ch + 43:0] auto_ss_out
+    output reg   [ 9:0] eg_V,
+    output reg          pg_rst_II,
+    input               auto_ss_rd,
+    input               auto_ss_wr,
+    input        [31:0] auto_ss_data_in,
+    input        [ 7:0] auto_ss_device_idx,
+    input        [15:0] auto_ss_state_idx,
+    input        [ 7:0] auto_ss_base_device_idx,
+    output logic [31:0] auto_ss_data_out,
+    output logic        auto_ss_ack
 
 );
+  assign auto_ss_ack = auto_ss_local_ack | auto_ss_u_egcnt_ack | auto_ss_u_cntsh_ack | auto_ss_u_egsh_ack | auto_ss_u_egstate_ack | auto_ss_u_ssg_inv_ack | auto_ss_u_konsh_ack;
+
+  assign auto_ss_data_out = auto_ss_local_data_out | auto_ss_u_egcnt_data_out | auto_ss_u_cntsh_data_out | auto_ss_u_egsh_data_out | auto_ss_u_egstate_data_out | auto_ss_u_ssg_inv_data_out | auto_ss_u_konsh_data_out;
+
+  logic        auto_ss_local_ack;
+
+  logic [31:0] auto_ss_local_data_out;
+
+  wire         auto_ss_u_konsh_ack;
+
+  wire  [31:0] auto_ss_u_konsh_data_out;
+
+  wire         auto_ss_u_ssg_inv_ack;
+
+  wire  [31:0] auto_ss_u_ssg_inv_data_out;
+
+  wire         auto_ss_u_egstate_ack;
+
+  wire  [31:0] auto_ss_u_egstate_data_out;
+
+  wire         auto_ss_u_egsh_ack;
+
+  wire  [31:0] auto_ss_u_egsh_data_out;
+
+  wire         auto_ss_u_cntsh_ack;
+
+  wire  [31:0] auto_ss_u_cntsh_data_out;
+
+  wire         auto_ss_u_egcnt_ack;
+
+  wire  [31:0] auto_ss_u_egcnt_data_out;
+
+  wire         device_match = (auto_ss_device_idx == auto_ss_base_device_idx);
+
   genvar auto_ss_idx;
 
 
@@ -3148,14 +3683,19 @@ module jt12_eg (
   wire [14:0] eg_cnt;
 
   jt12_eg_cnt u_egcnt (
-      .rst        (rst),
-      .clk        (clk),
-      .clk_en     (clk_en & ~eg_stop),
-      .zero       (zero),
-      .eg_cnt     (eg_cnt),
-      .auto_ss_in (auto_ss_in[60+:17]),
-      .auto_ss_out(auto_ss_out[60+:17]),
-      .auto_ss_wr (auto_ss_wr)
+      .rst                    (rst),
+      .clk                    (clk),
+      .clk_en                 (clk_en & ~eg_stop),
+      .zero                   (zero),
+      .eg_cnt                 (eg_cnt),
+      .auto_ss_rd             (auto_ss_rd),
+      .auto_ss_wr             (auto_ss_wr),
+      .auto_ss_data_in        (auto_ss_data_in),
+      .auto_ss_device_idx     (auto_ss_device_idx),
+      .auto_ss_state_idx      (auto_ss_state_idx),
+      .auto_ss_base_device_idx(auto_ss_base_device_idx + 1),
+      .auto_ss_data_out       (auto_ss_u_egcnt_data_out),
+      .auto_ss_ack            (auto_ss_u_egcnt_ack)
 
   );
 
@@ -3259,44 +3799,67 @@ module jt12_eg (
       eg_in_IV     <= pure_eg_out_III;
       eg_V         <= eg_out_IV;
     end
-    if (auto_ss_wr) begin
-      integer auto_ss_idx;
-      attack_II    <= auto_ss_in[3];
-      attack_III   <= auto_ss_in[4];
-      base_rate_II <= auto_ss_in[5+:5];
-      eg_V         <= auto_ss_in[49+:10];
-      eg_in_II     <= auto_ss_in[19+:10];
-      eg_in_III    <= auto_ss_in[29+:10];
-      eg_in_IV     <= auto_ss_in[39+:10];
-      pg_rst_II    <= auto_ss_in[59];
-      rate_in_III  <= auto_ss_in[10+:5];
-      ssg_en_II    <= auto_ss_in[16];
-      ssg_en_III   <= auto_ss_in[17];
-      ssg_inv_II   <= auto_ss_in[0];
-      ssg_inv_III  <= auto_ss_in[1];
-      ssg_inv_IV   <= auto_ss_in[2];
-      step_III     <= auto_ss_in[15];
-      sum_in_III   <= auto_ss_in[18];
+    if (auto_ss_wr && device_match) begin
+      case (auto_ss_state_idx)
+        0: begin
+          eg_V      <= auto_ss_data_in[9:0];
+          eg_in_II  <= auto_ss_data_in[19:10];
+          eg_in_III <= auto_ss_data_in[29:20];
+        end
+        1: begin
+          eg_in_IV     <= auto_ss_data_in[9:0];
+          base_rate_II <= auto_ss_data_in[14:10];
+          rate_in_III  <= auto_ss_data_in[19:15];
+          attack_II    <= auto_ss_data_in[20];
+          attack_III   <= auto_ss_data_in[21];
+          pg_rst_II    <= auto_ss_data_in[22];
+          ssg_en_II    <= auto_ss_data_in[23];
+          ssg_en_III   <= auto_ss_data_in[24];
+          ssg_inv_II   <= auto_ss_data_in[25];
+          ssg_inv_III  <= auto_ss_data_in[26];
+          ssg_inv_IV   <= auto_ss_data_in[27];
+          step_III     <= auto_ss_data_in[28];
+          sum_in_III   <= auto_ss_data_in[29];
+        end
+        default: begin
+        end
+      endcase
     end
   end
 
 
-  assign auto_ss_out[3]      = attack_II;
-  assign auto_ss_out[4]      = attack_III;
-  assign auto_ss_out[5+:5]   = base_rate_II;
-  assign auto_ss_out[49+:10] = eg_V;
-  assign auto_ss_out[19+:10] = eg_in_II;
-  assign auto_ss_out[29+:10] = eg_in_III;
-  assign auto_ss_out[39+:10] = eg_in_IV;
-  assign auto_ss_out[59]     = pg_rst_II;
-  assign auto_ss_out[10+:5]  = rate_in_III;
-  assign auto_ss_out[16]     = ssg_en_II;
-  assign auto_ss_out[17]     = ssg_en_III;
-  assign auto_ss_out[0]      = ssg_inv_II;
-  assign auto_ss_out[1]      = ssg_inv_III;
-  assign auto_ss_out[2]      = ssg_inv_IV;
-  assign auto_ss_out[15]     = step_III;
-  assign auto_ss_out[18]     = sum_in_III;
+  always_comb begin
+    auto_ss_local_data_out = 32'h0;
+    auto_ss_local_ack      = 1'b0;
+    if (auto_ss_rd && device_match) begin
+      case (auto_ss_state_idx)
+        0: begin
+          auto_ss_local_data_out[29:0] = {eg_in_III, eg_in_II, eg_V};
+          auto_ss_local_ack            = 1'b1;
+        end
+        1: begin
+          auto_ss_local_data_out[29:0] = {
+            sum_in_III,
+            step_III,
+            ssg_inv_IV,
+            ssg_inv_III,
+            ssg_inv_II,
+            ssg_en_III,
+            ssg_en_II,
+            pg_rst_II,
+            attack_III,
+            attack_II,
+            rate_in_III,
+            base_rate_II,
+            eg_in_IV
+          };
+          auto_ss_local_ack = 1'b1;
+        end
+        default: begin
+        end
+      endcase
+    end
+  end
 
 
 
@@ -3304,13 +3867,18 @@ module jt12_eg (
       .width (1),
       .stages(4 * num_ch)
   ) u_cntsh (
-      .clk        (clk),
-      .clk_en     (clk_en),
-      .din        (cnt_lsb_II),
-      .drop       (cnt_in_II),
-      .auto_ss_in (auto_ss_in[77+:4*num_ch]),
-      .auto_ss_out(auto_ss_out[77+:4*num_ch]),
-      .auto_ss_wr (auto_ss_wr)
+      .clk                    (clk),
+      .clk_en                 (clk_en),
+      .din                    (cnt_lsb_II),
+      .drop                   (cnt_in_II),
+      .auto_ss_rd             (auto_ss_rd),
+      .auto_ss_wr             (auto_ss_wr),
+      .auto_ss_data_in        (auto_ss_data_in),
+      .auto_ss_device_idx     (auto_ss_device_idx),
+      .auto_ss_state_idx      (auto_ss_state_idx),
+      .auto_ss_base_device_idx(auto_ss_base_device_idx + 2),
+      .auto_ss_data_out       (auto_ss_u_cntsh_data_out),
+      .auto_ss_ack            (auto_ss_u_cntsh_ack)
 
   );
 
@@ -3319,14 +3887,19 @@ module jt12_eg (
       .stages(4 * num_ch - 3),
       .rstval(1'b1)
   ) u_egsh (
-      .clk        (clk),
-      .clk_en     (clk_en),
-      .rst        (rst),
-      .din        (eg_in_IV),
-      .drop       (eg_in_I),
-      .auto_ss_in (auto_ss_in[4*num_ch+77+:40*num_ch-30]),
-      .auto_ss_out(auto_ss_out[4*num_ch+77+:40*num_ch-30]),
-      .auto_ss_wr (auto_ss_wr)
+      .clk                    (clk),
+      .clk_en                 (clk_en),
+      .rst                    (rst),
+      .din                    (eg_in_IV),
+      .drop                   (eg_in_I),
+      .auto_ss_rd             (auto_ss_rd),
+      .auto_ss_wr             (auto_ss_wr),
+      .auto_ss_data_in        (auto_ss_data_in),
+      .auto_ss_device_idx     (auto_ss_device_idx),
+      .auto_ss_state_idx      (auto_ss_state_idx),
+      .auto_ss_base_device_idx(auto_ss_base_device_idx + 3),
+      .auto_ss_data_out       (auto_ss_u_egsh_data_out),
+      .auto_ss_ack            (auto_ss_u_egsh_ack)
 
   );
 
@@ -3335,14 +3908,19 @@ module jt12_eg (
       .stages(4 * num_ch),
       .rstval(1'b1)
   ) u_egstate (
-      .clk        (clk),
-      .clk_en     (clk_en),
-      .rst        (rst),
-      .din        (state_next_I),
-      .drop       (state_in_I),
-      .auto_ss_in (auto_ss_in[44*num_ch+47+:12*num_ch]),
-      .auto_ss_out(auto_ss_out[44*num_ch+47+:12*num_ch]),
-      .auto_ss_wr (auto_ss_wr)
+      .clk                    (clk),
+      .clk_en                 (clk_en),
+      .rst                    (rst),
+      .din                    (state_next_I),
+      .drop                   (state_in_I),
+      .auto_ss_rd             (auto_ss_rd),
+      .auto_ss_wr             (auto_ss_wr),
+      .auto_ss_data_in        (auto_ss_data_in),
+      .auto_ss_device_idx     (auto_ss_device_idx),
+      .auto_ss_state_idx      (auto_ss_state_idx),
+      .auto_ss_base_device_idx(auto_ss_base_device_idx + 4),
+      .auto_ss_data_out       (auto_ss_u_egstate_data_out),
+      .auto_ss_ack            (auto_ss_u_egstate_ack)
 
   );
 
@@ -3351,14 +3929,19 @@ module jt12_eg (
       .stages(4 * num_ch - 3),
       .rstval(1'b0)
   ) u_ssg_inv (
-      .clk        (clk),
-      .clk_en     (clk_en),
-      .rst        (rst),
-      .din        (ssg_inv_IV),
-      .drop       (ssg_inv_in_I),
-      .auto_ss_in (auto_ss_in[56*num_ch+47+:4*num_ch-3]),
-      .auto_ss_out(auto_ss_out[56*num_ch+47+:4*num_ch-3]),
-      .auto_ss_wr (auto_ss_wr)
+      .clk                    (clk),
+      .clk_en                 (clk_en),
+      .rst                    (rst),
+      .din                    (ssg_inv_IV),
+      .drop                   (ssg_inv_in_I),
+      .auto_ss_rd             (auto_ss_rd),
+      .auto_ss_wr             (auto_ss_wr),
+      .auto_ss_data_in        (auto_ss_data_in),
+      .auto_ss_device_idx     (auto_ss_device_idx),
+      .auto_ss_state_idx      (auto_ss_state_idx),
+      .auto_ss_base_device_idx(auto_ss_base_device_idx + 5),
+      .auto_ss_data_out       (auto_ss_u_ssg_inv_data_out),
+      .auto_ss_ack            (auto_ss_u_ssg_inv_ack)
 
   );
 
@@ -3367,14 +3950,19 @@ module jt12_eg (
       .stages(4 * num_ch),
       .rstval(1'b0)
   ) u_konsh (
-      .clk        (clk),
-      .clk_en     (clk_en),
-      .rst        (rst),
-      .din        (keyon_I),
-      .drop       (keyon_last_I),
-      .auto_ss_in (auto_ss_in[60*num_ch+44+:4*num_ch]),
-      .auto_ss_out(auto_ss_out[60*num_ch+44+:4*num_ch]),
-      .auto_ss_wr (auto_ss_wr)
+      .clk                    (clk),
+      .clk_en                 (clk_en),
+      .rst                    (rst),
+      .din                    (keyon_I),
+      .drop                   (keyon_last_I),
+      .auto_ss_rd             (auto_ss_rd),
+      .auto_ss_wr             (auto_ss_wr),
+      .auto_ss_data_in        (auto_ss_data_in),
+      .auto_ss_device_idx     (auto_ss_device_idx),
+      .auto_ss_state_idx      (auto_ss_state_idx),
+      .auto_ss_base_device_idx(auto_ss_base_device_idx + 6),
+      .auto_ss_data_out       (auto_ss_u_konsh_data_out),
+      .auto_ss_ack            (auto_ss_u_konsh_ack)
 
   );
 
@@ -3385,15 +3973,22 @@ endmodule
 ///////////////////////////////////////////
 // MODULE jt12_logsin
 module jt12_logsin (
-    input      [ 7:0] addr,
-    input             clk,
-    input             clk_en,
-    output reg [11:0] logsin,
-    input      [11:0] auto_ss_in,
-    input             auto_ss_wr,
-    output     [11:0] auto_ss_out
+    input        [ 7:0] addr,
+    input               clk,
+    input               clk_en,
+    output reg   [11:0] logsin,
+    input               auto_ss_rd,
+    input               auto_ss_wr,
+    input        [31:0] auto_ss_data_in,
+    input        [ 7:0] auto_ss_device_idx,
+    input        [15:0] auto_ss_state_idx,
+    input        [ 7:0] auto_ss_base_device_idx,
+    output logic [31:0] auto_ss_data_out,
+    output logic        auto_ss_ack
 
 );
+  wire device_match = (auto_ss_device_idx == auto_ss_base_device_idx);
+
   genvar auto_ss_idx;
 
 
@@ -3659,14 +4254,32 @@ module jt12_logsin (
 
   always @(posedge clk) begin
     if (clk_en) logsin <= sinelut[addr];
-    if (auto_ss_wr) begin
-      integer auto_ss_idx;
-      logsin <= auto_ss_in[0+:12];
+    if (auto_ss_wr && device_match) begin
+      case (auto_ss_state_idx)
+        0: begin
+          logsin <= auto_ss_data_in[11:0];
+        end
+        default: begin
+        end
+      endcase
     end
   end
 
 
-  assign auto_ss_out[0+:12] = logsin;
+  always_comb begin
+    auto_ss_data_out = 32'h0;
+    auto_ss_ack      = 1'b0;
+    if (auto_ss_rd && device_match) begin
+      case (auto_ss_state_idx)
+        0: begin
+          auto_ss_data_out[12-1:0] = logsin;
+          auto_ss_ack              = 1'b1;
+        end
+        default: begin
+        end
+      endcase
+    end
+  end
 
 
 
@@ -3676,15 +4289,22 @@ endmodule
 ///////////////////////////////////////////
 // MODULE jt12_exprom
 module jt12_exprom (
-    input      [7:0] addr,
-    input            clk,
-    input            clk_en  /* synthesis direct_enable */,
-    output reg [9:0] exp,
-    input      [9:0] auto_ss_in,
-    input            auto_ss_wr,
-    output     [9:0] auto_ss_out
+    input        [ 7:0] addr,
+    input               clk,
+    input               clk_en  /* synthesis direct_enable */,
+    output reg   [ 9:0] exp,
+    input               auto_ss_rd,
+    input               auto_ss_wr,
+    input        [31:0] auto_ss_data_in,
+    input        [ 7:0] auto_ss_device_idx,
+    input        [15:0] auto_ss_state_idx,
+    input        [ 7:0] auto_ss_base_device_idx,
+    output logic [31:0] auto_ss_data_out,
+    output logic        auto_ss_ack
 
 );
+  wire device_match = (auto_ss_device_idx == auto_ss_base_device_idx);
+
   genvar auto_ss_idx;
 
 
@@ -3950,14 +4570,32 @@ module jt12_exprom (
 
   always @(posedge clk) begin
     if (clk_en) exp <= explut_jt51[addr];
-    if (auto_ss_wr) begin
-      integer auto_ss_idx;
-      exp <= auto_ss_in[0+:10];
+    if (auto_ss_wr && device_match) begin
+      case (auto_ss_state_idx)
+        0: begin
+          exp <= auto_ss_data_in[9:0];
+        end
+        default: begin
+        end
+      endcase
     end
   end
 
 
-  assign auto_ss_out[0+:10] = exp;
+  always_comb begin
+    auto_ss_data_out = 32'h0;
+    auto_ss_ack      = 1'b0;
+    if (auto_ss_rd && device_match) begin
+      case (auto_ss_state_idx)
+        0: begin
+          auto_ss_data_out[10-1:0] = exp;
+          auto_ss_ack              = 1'b1;
+        end
+        default: begin
+        end
+      endcase
+    end
+  end
 
 
 
@@ -3987,13 +4625,52 @@ module jt12_op (
     input s4_enters,
     input zero,
 
-    output signed [              8:0] op_result,
-    output signed [             13:0] full_result,
-    input         [42*num_ch + 146:0] auto_ss_in,
-    input                             auto_ss_wr,
-    output        [42*num_ch + 146:0] auto_ss_out
+    output signed [ 8:0] op_result,
+    output signed [13:0] full_result,
+    input                auto_ss_rd,
+    input                auto_ss_wr,
+    input         [31:0] auto_ss_data_in,
+    input         [ 7:0] auto_ss_device_idx,
+    input         [15:0] auto_ss_state_idx,
+    input         [ 7:0] auto_ss_base_device_idx,
+    output logic  [31:0] auto_ss_data_out,
+    output logic         auto_ss_ack
 
 );
+  assign auto_ss_ack = auto_ss_local_ack | auto_ss_prev1_buffer_ack | auto_ss_prevprev1_buffer_ack | auto_ss_prev2_buffer_ack | auto_ss_phasemod_sh_ack | auto_ss_u_logsin_ack | auto_ss_u_exprom_ack;
+
+  assign auto_ss_data_out = auto_ss_local_data_out | auto_ss_prev1_buffer_data_out | auto_ss_prevprev1_buffer_data_out | auto_ss_prev2_buffer_data_out | auto_ss_phasemod_sh_data_out | auto_ss_u_logsin_data_out | auto_ss_u_exprom_data_out;
+
+  logic        auto_ss_local_ack;
+
+  logic [31:0] auto_ss_local_data_out;
+
+  wire         auto_ss_u_exprom_ack;
+
+  wire  [31:0] auto_ss_u_exprom_data_out;
+
+  wire         auto_ss_u_logsin_ack;
+
+  wire  [31:0] auto_ss_u_logsin_data_out;
+
+  wire         auto_ss_phasemod_sh_ack;
+
+  wire  [31:0] auto_ss_phasemod_sh_data_out;
+
+  wire         auto_ss_prev2_buffer_ack;
+
+  wire  [31:0] auto_ss_prev2_buffer_data_out;
+
+  wire         auto_ss_prevprev1_buffer_ack;
+
+  wire  [31:0] auto_ss_prevprev1_buffer_data_out;
+
+  wire         auto_ss_prev1_buffer_ack;
+
+  wire  [31:0] auto_ss_prev1_buffer_data_out;
+
+  wire         device_match = (auto_ss_device_idx == auto_ss_base_device_idx);
+
   genvar auto_ss_idx;
 
 
@@ -4035,13 +4712,18 @@ module jt12_op (
       .stages(num_ch)
   ) prev1_buffer (
       //  .rst    ( rst       ),
-      .clk        (clk),
-      .clk_en     (clk_en),
-      .din        (prev1_din),
-      .drop       (prev1),
-      .auto_ss_in (auto_ss_in[65+:14*num_ch]),
-      .auto_ss_out(auto_ss_out[65+:14*num_ch]),
-      .auto_ss_wr (auto_ss_wr)
+      .clk                    (clk),
+      .clk_en                 (clk_en),
+      .din                    (prev1_din),
+      .drop                   (prev1),
+      .auto_ss_rd             (auto_ss_rd),
+      .auto_ss_wr             (auto_ss_wr),
+      .auto_ss_data_in        (auto_ss_data_in),
+      .auto_ss_device_idx     (auto_ss_device_idx),
+      .auto_ss_state_idx      (auto_ss_state_idx),
+      .auto_ss_base_device_idx(auto_ss_base_device_idx + 1),
+      .auto_ss_data_out       (auto_ss_prev1_buffer_data_out),
+      .auto_ss_ack            (auto_ss_prev1_buffer_ack)
 
   );
 
@@ -4050,13 +4732,18 @@ module jt12_op (
       .stages(num_ch)
   ) prevprev1_buffer (
       //  .rst    ( rst           ),
-      .clk        (clk),
-      .clk_en     (clk_en),
-      .din        (prevprev1_din),
-      .drop       (prevprev1),
-      .auto_ss_in (auto_ss_in[14*num_ch+65+:14*num_ch]),
-      .auto_ss_out(auto_ss_out[14*num_ch+65+:14*num_ch]),
-      .auto_ss_wr (auto_ss_wr)
+      .clk                    (clk),
+      .clk_en                 (clk_en),
+      .din                    (prevprev1_din),
+      .drop                   (prevprev1),
+      .auto_ss_rd             (auto_ss_rd),
+      .auto_ss_wr             (auto_ss_wr),
+      .auto_ss_data_in        (auto_ss_data_in),
+      .auto_ss_device_idx     (auto_ss_device_idx),
+      .auto_ss_state_idx      (auto_ss_state_idx),
+      .auto_ss_base_device_idx(auto_ss_base_device_idx + 2),
+      .auto_ss_data_out       (auto_ss_prevprev1_buffer_data_out),
+      .auto_ss_ack            (auto_ss_prevprev1_buffer_ack)
 
   );
 
@@ -4065,13 +4752,18 @@ module jt12_op (
       .stages(num_ch)
   ) prev2_buffer (
       //  .rst    ( rst       ),
-      .clk        (clk),
-      .clk_en     (clk_en),
-      .din        (prev2_din),
-      .drop       (prev2),
-      .auto_ss_in (auto_ss_in[28*num_ch+65+:14*num_ch]),
-      .auto_ss_out(auto_ss_out[28*num_ch+65+:14*num_ch]),
-      .auto_ss_wr (auto_ss_wr)
+      .clk                    (clk),
+      .clk_en                 (clk_en),
+      .din                    (prev2_din),
+      .drop                   (prev2),
+      .auto_ss_rd             (auto_ss_rd),
+      .auto_ss_wr             (auto_ss_wr),
+      .auto_ss_data_in        (auto_ss_data_in),
+      .auto_ss_device_idx     (auto_ss_device_idx),
+      .auto_ss_state_idx      (auto_ss_state_idx),
+      .auto_ss_base_device_idx(auto_ss_base_device_idx + 3),
+      .auto_ss_data_out       (auto_ss_prev2_buffer_data_out),
+      .auto_ss_ack            (auto_ss_prev2_buffer_ack)
 
   );
 
@@ -4112,16 +4804,19 @@ module jt12_op (
       pm_preshift_II <= xs + ys;  // carry is discarded
       s1_II          <= s1_enters;
     end
-    if (auto_ss_wr) begin
-      integer auto_ss_idx;
-      pm_preshift_II <= auto_ss_in[31+:15];
-      s1_II          <= auto_ss_in[46];
+    if (auto_ss_wr && device_match) begin
+      case (auto_ss_state_idx)
+        0: begin
+          pm_preshift_II <= auto_ss_data_in[14:0];
+        end
+        2: begin
+          s1_II <= auto_ss_data_in[0];
+        end
+        default: begin
+        end
+      endcase
     end
   end
-
-
-  assign auto_ss_out[31+:15] = pm_preshift_II;
-  assign auto_ss_out[46]     = s1_II;
 
 
 
@@ -4159,13 +4854,18 @@ module jt12_op (
       .width (10),
       .stages(6)
   ) phasemod_sh (
-      .clk        (clk),
-      .clk_en     (clk_en),
-      .din        (phasemod_II),
-      .drop       (phasemod_VIII),
-      .auto_ss_in (auto_ss_in[42*num_ch+65+:60]),
-      .auto_ss_out(auto_ss_out[42*num_ch+65+:60]),
-      .auto_ss_wr (auto_ss_wr)
+      .clk                    (clk),
+      .clk_en                 (clk_en),
+      .din                    (phasemod_II),
+      .drop                   (phasemod_VIII),
+      .auto_ss_rd             (auto_ss_rd),
+      .auto_ss_wr             (auto_ss_wr),
+      .auto_ss_data_in        (auto_ss_data_in),
+      .auto_ss_device_idx     (auto_ss_device_idx),
+      .auto_ss_state_idx      (auto_ss_state_idx),
+      .auto_ss_base_device_idx(auto_ss_base_device_idx + 4),
+      .auto_ss_data_out       (auto_ss_phasemod_sh_data_out),
+      .auto_ss_ack            (auto_ss_phasemod_sh_ack)
 
   );
   //     else begin
@@ -4191,27 +4891,34 @@ module jt12_op (
     if (clk_en) begin
       signbit_IX <= phase[9];
     end
-    if (auto_ss_wr) begin
-      integer auto_ss_idx;
-      signbit_IX <= auto_ss_in[28];
+    if (auto_ss_wr && device_match) begin
+      case (auto_ss_state_idx)
+        2: begin
+          signbit_IX <= auto_ss_data_in[1];
+        end
+        default: begin
+        end
+      endcase
     end
   end
-
-
-  assign auto_ss_out[28] = signbit_IX;
 
 
 
   wire [11:0] logsin_IX;
 
   jt12_logsin u_logsin (
-      .clk        (clk),
-      .clk_en     (clk_en),
-      .addr       (aux_VIII[7:0]),
-      .logsin     (logsin_IX),
-      .auto_ss_in (auto_ss_in[42*num_ch+125+:12]),
-      .auto_ss_out(auto_ss_out[42*num_ch+125+:12]),
-      .auto_ss_wr (auto_ss_wr)
+      .clk                    (clk),
+      .clk_en                 (clk_en),
+      .addr                   (aux_VIII[7:0]),
+      .logsin                 (logsin_IX),
+      .auto_ss_rd             (auto_ss_rd),
+      .auto_ss_wr             (auto_ss_wr),
+      .auto_ss_data_in        (auto_ss_data_in),
+      .auto_ss_device_idx     (auto_ss_device_idx),
+      .auto_ss_state_idx      (auto_ss_state_idx),
+      .auto_ss_base_device_idx(auto_ss_base_device_idx + 5),
+      .auto_ss_data_out       (auto_ss_u_logsin_data_out),
+      .auto_ss_ack            (auto_ss_u_logsin_ack)
 
   );
 
@@ -4230,13 +4937,18 @@ module jt12_op (
   reg [3:0] exponent_X, exponent_XI;
 
   jt12_exprom u_exprom (
-      .clk        (clk),
-      .clk_en     (clk_en),
-      .addr       (atten_internal_IX[7:0]),
-      .exp        (mantissa_X),
-      .auto_ss_in (auto_ss_in[42*num_ch+137+:10]),
-      .auto_ss_out(auto_ss_out[42*num_ch+137+:10]),
-      .auto_ss_wr (auto_ss_wr)
+      .clk                    (clk),
+      .clk_en                 (clk_en),
+      .addr                   (atten_internal_IX[7:0]),
+      .exp                    (mantissa_X),
+      .auto_ss_rd             (auto_ss_rd),
+      .auto_ss_wr             (auto_ss_wr),
+      .auto_ss_data_in        (auto_ss_data_in),
+      .auto_ss_device_idx     (auto_ss_device_idx),
+      .auto_ss_state_idx      (auto_ss_state_idx),
+      .auto_ss_base_device_idx(auto_ss_base_device_idx + 6),
+      .auto_ss_data_out       (auto_ss_u_exprom_data_out),
+      .auto_ss_ack            (auto_ss_u_exprom_ack)
 
   );
 
@@ -4245,16 +4957,19 @@ module jt12_op (
       exponent_X <= atten_internal_IX[11:8];
       signbit_X  <= signbit_IX;
     end
-    if (auto_ss_wr) begin
-      integer auto_ss_idx;
-      exponent_X <= auto_ss_in[57+:4];
-      signbit_X  <= auto_ss_in[29];
+    if (auto_ss_wr && device_match) begin
+      case (auto_ss_state_idx)
+        1: begin
+          exponent_X <= auto_ss_data_in[27:24];
+        end
+        2: begin
+          signbit_X <= auto_ss_data_in[2];
+        end
+        default: begin
+        end
+      endcase
     end
   end
-
-
-  assign auto_ss_out[57+:4] = exponent_X;
-  assign auto_ss_out[29]    = signbit_X;
 
 
 
@@ -4264,18 +4979,20 @@ module jt12_op (
       exponent_XI <= exponent_X;
       signbit_XI  <= signbit_X;
     end
-    if (auto_ss_wr) begin
-      integer auto_ss_idx;
-      exponent_XI <= auto_ss_in[61+:4];
-      mantissa_XI <= auto_ss_in[47+:10];
-      signbit_XI  <= auto_ss_in[30];
+    if (auto_ss_wr && device_match) begin
+      case (auto_ss_state_idx)
+        1: begin
+          mantissa_XI <= auto_ss_data_in[23:14];
+          exponent_XI <= auto_ss_data_in[31:28];
+        end
+        2: begin
+          signbit_XI <= auto_ss_data_in[3];
+        end
+        default: begin
+        end
+      endcase
     end
   end
-
-
-  assign auto_ss_out[61+:4]  = exponent_XI;
-  assign auto_ss_out[47+:10] = mantissa_XI;
-  assign auto_ss_out[30]     = signbit_XI;
 
 
 
@@ -4308,16 +5025,43 @@ module jt12_op (
       // Extra register, take output after here
       op_result_internal <= op_XII;
     end
-    if (auto_ss_wr) begin
-      integer auto_ss_idx;
-      op_XII             <= auto_ss_in[14+:14];
-      op_result_internal <= auto_ss_in[0+:14];
+    if (auto_ss_wr && device_match) begin
+      case (auto_ss_state_idx)
+        0: begin
+          op_XII <= auto_ss_data_in[28:15];
+        end
+        1: begin
+          op_result_internal <= auto_ss_data_in[13:0];
+        end
+        default: begin
+        end
+      endcase
     end
   end
 
 
-  assign auto_ss_out[14+:14] = op_XII;
-  assign auto_ss_out[0+:14]  = op_result_internal;
+  always_comb begin
+    auto_ss_local_data_out = 32'h0;
+    auto_ss_local_ack      = 1'b0;
+    if (auto_ss_rd && device_match) begin
+      case (auto_ss_state_idx)
+        0: begin
+          auto_ss_local_data_out[28:0] = {op_XII, pm_preshift_II};
+          auto_ss_local_ack            = 1'b1;
+        end
+        1: begin
+          auto_ss_local_data_out[31:0] = {exponent_XI, exponent_X, mantissa_XI, op_result_internal};
+          auto_ss_local_ack = 1'b1;
+        end
+        2: begin
+          auto_ss_local_data_out[3:0] = {signbit_XI, signbit_X, signbit_IX, s1_II};
+          auto_ss_local_ack           = 1'b1;
+        end
+        default: begin
+        end
+      endcase
+    end
+  end
 
 
 
@@ -4329,14 +5073,21 @@ endmodule
 ///////////////////////////////////////////
 // MODULE jt12_rst
 module jt12_rst (
-    input            rst,
-    input            clk,
-    output reg       rst_n,
-    input      [1:0] auto_ss_in,
-    input            auto_ss_wr,
-    output     [1:0] auto_ss_out
+    input               rst,
+    input               clk,
+    output reg          rst_n,
+    input               auto_ss_rd,
+    input               auto_ss_wr,
+    input        [31:0] auto_ss_data_in,
+    input        [ 7:0] auto_ss_device_idx,
+    input        [15:0] auto_ss_state_idx,
+    input        [ 7:0] auto_ss_base_device_idx,
+    output logic [31:0] auto_ss_data_out,
+    output logic        auto_ss_ack
 
 );
+  wire device_match = (auto_ss_device_idx == auto_ss_base_device_idx);
+
   genvar auto_ss_idx;
 
 
@@ -4350,16 +5101,33 @@ module jt12_rst (
     end else begin
       {rst_n, r} <= {r, 1'b1};
     end
-    if (auto_ss_wr) begin
-      integer auto_ss_idx;
-      r     <= auto_ss_in[0];
-      rst_n <= auto_ss_in[1];
+    if (auto_ss_wr && device_match) begin
+      case (auto_ss_state_idx)
+        0: begin
+          r     <= auto_ss_data_in[0];
+          rst_n <= auto_ss_data_in[1];
+        end
+        default: begin
+        end
+      endcase
     end
   end
 
 
-  assign auto_ss_out[0] = r;
-  assign auto_ss_out[1] = rst_n;
+  always_comb begin
+    auto_ss_data_out = 32'h0;
+    auto_ss_ack      = 1'b0;
+    if (auto_ss_rd && device_match) begin
+      case (auto_ss_state_idx)
+        0: begin
+          auto_ss_data_out[1:0] = {rst_n, r};
+          auto_ss_ack           = 1'b1;
+        end
+        default: begin
+        end
+      endcase
+    end
+  end
 
 
 
@@ -4369,38 +5137,45 @@ endmodule
 ///////////////////////////////////////////
 // MODULE jt10_adpcm_cnt
 module jt10_adpcm_cnt (
-    input              rst_n,
-    input              clk,         // CPU clock
-    input              cen,         // 666 kHz
+    input               rst_n,
+    input               clk,                      // CPU clock
+    input               cen,                      // 666 kHz
     // pipeline channel
-    input      [  5:0] cur_ch,
-    input      [  5:0] en_ch,
+    input        [ 5:0] cur_ch,
+    input        [ 5:0] en_ch,
     // Address writes from CPU
-    input      [ 15:0] addr_in,
-    input      [  2:0] addr_ch,
-    input              up_start,
-    input              up_end,
+    input        [15:0] addr_in,
+    input        [ 2:0] addr_ch,
+    input               up_start,
+    input               up_end,
     // Counter control
-    input              aon,
-    input              aoff,
+    input               aon,
+    input               aoff,
     // ROM driver
-    output     [ 19:0] addr_out,
-    output     [  3:0] bank,
-    output             sel,
-    output             roe_n,
-    output             decon,
-    output             clr,         // inform the decoder that a new section begins
+    output       [19:0] addr_out,
+    output       [ 3:0] bank,
+    output              sel,
+    output              roe_n,
+    output              decon,
+    output              clr,                      // inform the decoder that a new section begins
     // Flags
-    output reg [  5:0] flags,
-    input      [  5:0] clr_flags,
+    output reg   [ 5:0] flags,
+    input        [ 5:0] clr_flags,
     //
-    output     [ 15:0] start_top,
-    output     [ 15:0] end_top,
-    input      [350:0] auto_ss_in,
-    input              auto_ss_wr,
-    output     [350:0] auto_ss_out
+    output       [15:0] start_top,
+    output       [15:0] end_top,
+    input               auto_ss_rd,
+    input               auto_ss_wr,
+    input        [31:0] auto_ss_data_in,
+    input        [ 7:0] auto_ss_device_idx,
+    input        [15:0] auto_ss_state_idx,
+    input        [ 7:0] auto_ss_base_device_idx,
+    output logic [31:0] auto_ss_data_out,
+    output logic        auto_ss_ack
 
 );
+  wire device_match = (auto_ss_device_idx == auto_ss_base_device_idx);
+
   genvar auto_ss_idx;
 
 
@@ -4436,12 +5211,19 @@ module jt10_adpcm_cnt (
       zero      <= 6'd1;
       done_sr   <= ~6'd0;
       last_done <= ~6'd0;
-    end else if (auto_ss_wr) begin
-      integer auto_ss_idx;
-      done_sr   <= auto_ss_in[306+:6];
-      last_done <= auto_ss_in[333+:6];
-      set_flags <= auto_ss_in[339+:6];
-      zero      <= auto_ss_in[312+:6];
+    end else if (auto_ss_wr && device_match) begin
+      case (auto_ss_state_idx)
+        11: begin
+          done_sr <= auto_ss_data_in[29:24];
+        end
+        12: begin
+          last_done <= auto_ss_data_in[5:0];
+          set_flags <= auto_ss_data_in[11:6];
+          zero      <= auto_ss_data_in[17:12];
+        end
+        default: begin
+        end
+      endcase
     end else if (cen) begin
       zero    <= {zero[0], zero[5:1]};
       done_sr <= {done1, done_sr[5:1]};
@@ -4450,30 +5232,26 @@ module jt10_adpcm_cnt (
         set_flags <= ~last_done & done_sr;
       end
     end
-  assign auto_ss_out[306+:6] = done_sr;
-  assign auto_ss_out[333+:6] = last_done;
-  assign auto_ss_out[339+:6] = set_flags;
-  assign auto_ss_out[312+:6] = zero;
-
-
 
   always @(posedge clk or negedge rst_n)
     if (!rst_n) begin
       flags <= 6'd0;
-    end else if (auto_ss_wr) begin
-      integer auto_ss_idx;
-      flags <= auto_ss_in[345+:6];
+    end else if (auto_ss_wr && device_match) begin
+      case (auto_ss_state_idx)
+        12: begin
+          flags <= auto_ss_data_in[23:18];
+        end
+        default: begin
+        end
+      endcase
     end else begin
       flags <= ~clr_flags & (set_flags | flags);
     end
-  assign auto_ss_out[345+:6] = flags;
 
 
 
-
-
-  assign start_top           = {bank1, start1};
-  assign end_top             = {bank1, end1};
+  assign start_top = {bank1, start1};
+  assign end_top   = {bank1, end1};
 
   reg [5:0] addr_ch_dec;
 
@@ -4522,59 +5300,92 @@ module jt10_adpcm_cnt (
       skip4  <= 'd0;
       skip5  <= 'd0;
       skip6  <= 'd0;
-    end else if (auto_ss_wr) begin
-      integer auto_ss_idx;
-      addr1  <= auto_ss_in[0+:21];
-      addr2  <= auto_ss_in[21+:21];
-      addr3  <= auto_ss_in[42+:21];
-      addr4  <= auto_ss_in[63+:21];
-      addr5  <= auto_ss_in[84+:21];
-      addr6  <= auto_ss_in[105+:21];
-      bank1  <= auto_ss_in[126+:4];
-      bank2  <= auto_ss_in[130+:4];
-      bank3  <= auto_ss_in[134+:4];
-      bank4  <= auto_ss_in[138+:4];
-      bank5  <= auto_ss_in[142+:4];
-      bank6  <= auto_ss_in[146+:4];
-      clr1   <= auto_ss_in[320];
-      clr2   <= auto_ss_in[321];
-      clr3   <= auto_ss_in[322];
-      clr4   <= auto_ss_in[323];
-      clr5   <= auto_ss_in[324];
-      clr6   <= auto_ss_in[325];
-      decon1 <= auto_ss_in[319];
-      done1  <= auto_ss_in[300];
-      done2  <= auto_ss_in[301];
-      done3  <= auto_ss_in[302];
-      done4  <= auto_ss_in[303];
-      done5  <= auto_ss_in[304];
-      done6  <= auto_ss_in[305];
-      end1   <= auto_ss_in[222+:12];
-      end2   <= auto_ss_in[234+:12];
-      end3   <= auto_ss_in[246+:12];
-      end4   <= auto_ss_in[258+:12];
-      end5   <= auto_ss_in[270+:12];
-      end6   <= auto_ss_in[282+:12];
-      on1    <= auto_ss_in[294];
-      on2    <= auto_ss_in[295];
-      on3    <= auto_ss_in[296];
-      on4    <= auto_ss_in[297];
-      on5    <= auto_ss_in[298];
-      on6    <= auto_ss_in[299];
-      roe_n1 <= auto_ss_in[318];
-      skip1  <= auto_ss_in[326];
-      skip2  <= auto_ss_in[327];
-      skip3  <= auto_ss_in[328];
-      skip4  <= auto_ss_in[329];
-      skip5  <= auto_ss_in[330];
-      skip6  <= auto_ss_in[331];
-      start1 <= auto_ss_in[150+:12];
-      start2 <= auto_ss_in[162+:12];
-      start3 <= auto_ss_in[174+:12];
-      start4 <= auto_ss_in[186+:12];
-      start5 <= auto_ss_in[198+:12];
-      start6 <= auto_ss_in[210+:12];
-      sumup6 <= auto_ss_in[332];
+    end else if (auto_ss_wr && device_match) begin
+      case (auto_ss_state_idx)
+        0: begin
+          addr1 <= auto_ss_data_in[20:0];
+        end
+        1: begin
+          addr2 <= auto_ss_data_in[20:0];
+        end
+        2: begin
+          addr3 <= auto_ss_data_in[20:0];
+        end
+        3: begin
+          addr4 <= auto_ss_data_in[20:0];
+        end
+        4: begin
+          addr5 <= auto_ss_data_in[20:0];
+        end
+        5: begin
+          addr6 <= auto_ss_data_in[20:0];
+        end
+        6: begin
+          end1 <= auto_ss_data_in[11:0];
+          end2 <= auto_ss_data_in[23:12];
+        end
+        7: begin
+          end3 <= auto_ss_data_in[11:0];
+          end4 <= auto_ss_data_in[23:12];
+        end
+        8: begin
+          end5 <= auto_ss_data_in[11:0];
+          end6 <= auto_ss_data_in[23:12];
+        end
+        9: begin
+          start1 <= auto_ss_data_in[11:0];
+          start2 <= auto_ss_data_in[23:12];
+        end
+        10: begin
+          start3 <= auto_ss_data_in[11:0];
+          start4 <= auto_ss_data_in[23:12];
+        end
+        11: begin
+          start5 <= auto_ss_data_in[11:0];
+          start6 <= auto_ss_data_in[23:12];
+        end
+        12: begin
+          bank1 <= auto_ss_data_in[27:24];
+          bank2 <= auto_ss_data_in[31:28];
+        end
+        13: begin
+          bank3  <= auto_ss_data_in[3:0];
+          bank4  <= auto_ss_data_in[7:4];
+          bank5  <= auto_ss_data_in[11:8];
+          bank6  <= auto_ss_data_in[15:12];
+          clr1   <= auto_ss_data_in[16];
+          clr2   <= auto_ss_data_in[17];
+          clr3   <= auto_ss_data_in[18];
+          clr4   <= auto_ss_data_in[19];
+          clr5   <= auto_ss_data_in[20];
+          clr6   <= auto_ss_data_in[21];
+          decon1 <= auto_ss_data_in[22];
+          done1  <= auto_ss_data_in[23];
+          done2  <= auto_ss_data_in[24];
+          done3  <= auto_ss_data_in[25];
+          done4  <= auto_ss_data_in[26];
+          done5  <= auto_ss_data_in[27];
+          done6  <= auto_ss_data_in[28];
+          on1    <= auto_ss_data_in[29];
+          on2    <= auto_ss_data_in[30];
+          on3    <= auto_ss_data_in[31];
+        end
+        14: begin
+          on4    <= auto_ss_data_in[0];
+          on5    <= auto_ss_data_in[1];
+          on6    <= auto_ss_data_in[2];
+          roe_n1 <= auto_ss_data_in[3];
+          skip1  <= auto_ss_data_in[4];
+          skip2  <= auto_ss_data_in[5];
+          skip3  <= auto_ss_data_in[6];
+          skip4  <= auto_ss_data_in[7];
+          skip5  <= auto_ss_data_in[8];
+          skip6  <= auto_ss_data_in[9];
+          sumup6 <= auto_ss_data_in[10];
+        end
+        default: begin
+        end
+      endcase
     end else if (cen) begin
       addr2  <= addr1;
       on2    <= aoff ? 1'b0 : (aon | (on1 && ~done1));
@@ -4633,57 +5444,99 @@ module jt10_adpcm_cnt (
       clr1   <= clr6;
       skip1  <= (clr6 && on6) ? 1'b1 : sumup6 ? 1'b0 : skip6;
     end
-  assign auto_ss_out[0+:21]   = addr1;
-  assign auto_ss_out[21+:21]  = addr2;
-  assign auto_ss_out[42+:21]  = addr3;
-  assign auto_ss_out[63+:21]  = addr4;
-  assign auto_ss_out[84+:21]  = addr5;
-  assign auto_ss_out[105+:21] = addr6;
-  assign auto_ss_out[126+:4]  = bank1;
-  assign auto_ss_out[130+:4]  = bank2;
-  assign auto_ss_out[134+:4]  = bank3;
-  assign auto_ss_out[138+:4]  = bank4;
-  assign auto_ss_out[142+:4]  = bank5;
-  assign auto_ss_out[146+:4]  = bank6;
-  assign auto_ss_out[320]     = clr1;
-  assign auto_ss_out[321]     = clr2;
-  assign auto_ss_out[322]     = clr3;
-  assign auto_ss_out[323]     = clr4;
-  assign auto_ss_out[324]     = clr5;
-  assign auto_ss_out[325]     = clr6;
-  assign auto_ss_out[319]     = decon1;
-  assign auto_ss_out[300]     = done1;
-  assign auto_ss_out[301]     = done2;
-  assign auto_ss_out[302]     = done3;
-  assign auto_ss_out[303]     = done4;
-  assign auto_ss_out[304]     = done5;
-  assign auto_ss_out[305]     = done6;
-  assign auto_ss_out[222+:12] = end1;
-  assign auto_ss_out[234+:12] = end2;
-  assign auto_ss_out[246+:12] = end3;
-  assign auto_ss_out[258+:12] = end4;
-  assign auto_ss_out[270+:12] = end5;
-  assign auto_ss_out[282+:12] = end6;
-  assign auto_ss_out[294]     = on1;
-  assign auto_ss_out[295]     = on2;
-  assign auto_ss_out[296]     = on3;
-  assign auto_ss_out[297]     = on4;
-  assign auto_ss_out[298]     = on5;
-  assign auto_ss_out[299]     = on6;
-  assign auto_ss_out[318]     = roe_n1;
-  assign auto_ss_out[326]     = skip1;
-  assign auto_ss_out[327]     = skip2;
-  assign auto_ss_out[328]     = skip3;
-  assign auto_ss_out[329]     = skip4;
-  assign auto_ss_out[330]     = skip5;
-  assign auto_ss_out[331]     = skip6;
-  assign auto_ss_out[150+:12] = start1;
-  assign auto_ss_out[162+:12] = start2;
-  assign auto_ss_out[174+:12] = start3;
-  assign auto_ss_out[186+:12] = start4;
-  assign auto_ss_out[198+:12] = start5;
-  assign auto_ss_out[210+:12] = start6;
-  assign auto_ss_out[332]     = sumup6;
+  always_comb begin
+    auto_ss_data_out = 32'h0;
+    auto_ss_ack      = 1'b0;
+    if (auto_ss_rd && device_match) begin
+      case (auto_ss_state_idx)
+        0: begin
+          auto_ss_data_out[21-1:0] = addr1;
+          auto_ss_ack              = 1'b1;
+        end
+        1: begin
+          auto_ss_data_out[21-1:0] = addr2;
+          auto_ss_ack              = 1'b1;
+        end
+        2: begin
+          auto_ss_data_out[21-1:0] = addr3;
+          auto_ss_ack              = 1'b1;
+        end
+        3: begin
+          auto_ss_data_out[21-1:0] = addr4;
+          auto_ss_ack              = 1'b1;
+        end
+        4: begin
+          auto_ss_data_out[21-1:0] = addr5;
+          auto_ss_ack              = 1'b1;
+        end
+        5: begin
+          auto_ss_data_out[21-1:0] = addr6;
+          auto_ss_ack              = 1'b1;
+        end
+        6: begin
+          auto_ss_data_out[23:0] = {end2, end1};
+          auto_ss_ack            = 1'b1;
+        end
+        7: begin
+          auto_ss_data_out[23:0] = {end4, end3};
+          auto_ss_ack            = 1'b1;
+        end
+        8: begin
+          auto_ss_data_out[23:0] = {end6, end5};
+          auto_ss_ack            = 1'b1;
+        end
+        9: begin
+          auto_ss_data_out[23:0] = {start2, start1};
+          auto_ss_ack            = 1'b1;
+        end
+        10: begin
+          auto_ss_data_out[23:0] = {start4, start3};
+          auto_ss_ack            = 1'b1;
+        end
+        11: begin
+          auto_ss_data_out[29:0] = {done_sr, start6, start5};
+          auto_ss_ack            = 1'b1;
+        end
+        12: begin
+          auto_ss_data_out[31:0] = {bank2, bank1, flags, zero, set_flags, last_done};
+          auto_ss_ack            = 1'b1;
+        end
+        13: begin
+          auto_ss_data_out[31:0] = {
+            on3,
+            on2,
+            on1,
+            done6,
+            done5,
+            done4,
+            done3,
+            done2,
+            done1,
+            decon1,
+            clr6,
+            clr5,
+            clr4,
+            clr3,
+            clr2,
+            clr1,
+            bank6,
+            bank5,
+            bank4,
+            bank3
+          };
+          auto_ss_ack = 1'b1;
+        end
+        14: begin
+          auto_ss_data_out[10:0] = {
+            sumup6, skip6, skip5, skip4, skip3, skip2, skip1, roe_n1, on6, on5, on4
+          };
+          auto_ss_ack = 1'b1;
+        end
+        default: begin
+        end
+      endcase
+    end
+  end
 
 
 
@@ -4693,16 +5546,23 @@ endmodule
 ///////////////////////////////////////////
 // MODULE jt10_adpcma_lut
 module jt10_adpcma_lut (
-    input             clk,         // CPU clock
-    input             rst_n,
-    input             cen,
-    input      [ 8:0] addr,        //  = {step,delta};
-    output reg [11:0] inc,
-    input      [11:0] auto_ss_in,
-    input             auto_ss_wr,
-    output     [11:0] auto_ss_out
+    input               clk,                      // CPU clock
+    input               rst_n,
+    input               cen,
+    input        [ 8:0] addr,                     //  = {step,delta};
+    output reg   [11:0] inc,
+    input               auto_ss_rd,
+    input               auto_ss_wr,
+    input        [31:0] auto_ss_data_in,
+    input        [ 7:0] auto_ss_device_idx,
+    input        [15:0] auto_ss_state_idx,
+    input        [ 7:0] auto_ss_base_device_idx,
+    output logic [31:0] auto_ss_data_out,
+    output logic        auto_ss_ack
 
 );
+  wire device_match = (auto_ss_device_idx == auto_ss_base_device_idx);
+
   genvar auto_ss_idx;
 
 
@@ -5105,11 +5965,29 @@ module jt10_adpcma_lut (
 
   always @(posedge clk or negedge rst_n)
     if (!rst_n) inc <= 'd0;
-    else if (auto_ss_wr) begin
-      integer auto_ss_idx;
-      inc <= auto_ss_in[0+:12];
+    else if (auto_ss_wr && device_match) begin
+      case (auto_ss_state_idx)
+        0: begin
+          inc <= auto_ss_data_in[11:0];
+        end
+        default: begin
+        end
+      endcase
     end else if (cen) inc <= lut[addr];
-  assign auto_ss_out[0+:12] = inc;
+  always_comb begin
+    auto_ss_data_out = 32'h0;
+    auto_ss_ack      = 1'b0;
+    if (auto_ss_rd && device_match) begin
+      case (auto_ss_state_idx)
+        0: begin
+          auto_ss_data_out[12-1:0] = inc;
+          auto_ss_ack              = 1'b1;
+        end
+        default: begin
+        end
+      endcase
+    end
+  end
 
 
 
@@ -5119,18 +5997,37 @@ endmodule
 ///////////////////////////////////////////
 // MODULE jt10_adpcm
 module jt10_adpcm (
-    input                         rst_n,
-    input                         clk,         // CPU clock
-    input                         cen,         // optional clock enable, if not needed leave as 1'b1
-    input         [          3:0] data,
-    input                         chon,        // high if this channel is on
-    input                         clr,
-    output signed [         15:0] pcm,
-    input         [7*sigw + 61:0] auto_ss_in,
-    input                         auto_ss_wr,
-    output        [7*sigw + 61:0] auto_ss_out
+    input rst_n,
+    input clk,  // CPU clock
+    input cen,  // optional clock enable, if not needed leave as 1'b1
+    input [3:0] data,
+    input chon,  // high if this channel is on
+    input clr,
+    output signed [15:0] pcm,
+    input auto_ss_rd,
+    input auto_ss_wr,
+    input [31:0] auto_ss_data_in,
+    input [7:0] auto_ss_device_idx,
+    input [15:0] auto_ss_state_idx,
+    input [7:0] auto_ss_base_device_idx,
+    output logic [31:0] auto_ss_data_out,
+    output logic auto_ss_ack
 
 );
+  assign auto_ss_ack      = auto_ss_local_ack | auto_ss_u_lut_ack;
+
+  assign auto_ss_data_out = auto_ss_local_data_out | auto_ss_u_lut_data_out;
+
+  logic        auto_ss_local_ack;
+
+  logic [31:0] auto_ss_local_data_out;
+
+  wire         auto_ss_u_lut_ack;
+
+  wire  [31:0] auto_ss_u_lut_data_out;
+
+  wire         device_match = (auto_ss_device_idx == auto_ss_base_device_idx);
+
   genvar auto_ss_idx;
 
 
@@ -5163,14 +6060,19 @@ module jt10_adpcm (
 
 
   jt10_adpcma_lut u_lut (
-      .clk        (clk),
-      .rst_n      (rst_n),
-      .cen        (cen),
-      .addr       (lut_addr2),
-      .inc        (inc3),
-      .auto_ss_in (auto_ss_in[7*sigw+50+:12]),
-      .auto_ss_out(auto_ss_out[7*sigw+50+:12]),
-      .auto_ss_wr (auto_ss_wr)
+      .clk                    (clk),
+      .rst_n                  (rst_n),
+      .cen                    (cen),
+      .addr                   (lut_addr2),
+      .inc                    (inc3),
+      .auto_ss_rd             (auto_ss_rd),
+      .auto_ss_wr             (auto_ss_wr),
+      .auto_ss_data_in        (auto_ss_data_in),
+      .auto_ss_device_idx     (auto_ss_device_idx),
+      .auto_ss_state_idx      (auto_ss_state_idx),
+      .auto_ss_base_device_idx(auto_ss_base_device_idx + 1),
+      .auto_ss_data_out       (auto_ss_u_lut_data_out),
+      .auto_ss_ack            (auto_ss_u_lut_ack)
 
   );
 
@@ -5201,27 +6103,27 @@ module jt10_adpcm (
       chon4     <= 'b0;
       lut_addr2 <= 'd0;
       inc4      <= 'd0;
-    end else if (auto_ss_wr) begin
-      integer auto_ss_idx;
-      chon2     <= auto_ss_in[7*sigw+47];
-      chon3     <= auto_ss_in[7*sigw+48];
-      chon4     <= auto_ss_in[7*sigw+49];
-      inc4      <= auto_ss_in[6*sigw+:sigw];
-      lut_addr2 <= auto_ss_in[7*sigw+38+:9];
-      sign2     <= auto_ss_in[7*sigw+36];
-      sign3     <= auto_ss_in[7*sigw+37];
-      step1     <= auto_ss_in[7*sigw+:6];
-      step2     <= auto_ss_in[7*sigw+6+:6];
-      step3     <= auto_ss_in[7*sigw+18+:6];
-      step4     <= auto_ss_in[7*sigw+24+:6];
-      step5     <= auto_ss_in[7*sigw+30+:6];
-      step6     <= auto_ss_in[7*sigw+12+:6];
-      x1        <= auto_ss_in[0+:sigw];
-      x2        <= auto_ss_in[sigw+:sigw];
-      x3        <= auto_ss_in[2*sigw+:sigw];
-      x4        <= auto_ss_in[3*sigw+:sigw];
-      x5        <= auto_ss_in[4*sigw+:sigw];
-      x6        <= auto_ss_in[5*sigw+:sigw];
+    end else if (auto_ss_wr && device_match) begin
+      case (auto_ss_state_idx)
+        0: begin
+          lut_addr2 <= auto_ss_data_in[8:0];
+          step1     <= auto_ss_data_in[14:9];
+          step2     <= auto_ss_data_in[20:15];
+          step3     <= auto_ss_data_in[26:21];
+        end
+        1: begin
+          step4 <= auto_ss_data_in[5:0];
+          step5 <= auto_ss_data_in[11:6];
+          step6 <= auto_ss_data_in[17:12];
+          chon2 <= auto_ss_data_in[18];
+          chon3 <= auto_ss_data_in[19];
+          chon4 <= auto_ss_data_in[20];
+          sign2 <= auto_ss_data_in[21];
+          sign3 <= auto_ss_data_in[22];
+        end
+        default: begin
+        end
+      endcase
     end else if (cen) begin
       // I
       sign2     <= data[3];
@@ -5252,25 +6154,24 @@ module jt10_adpcm (
       x1        <= x6;
       step1     <= step6;
     end
-  assign auto_ss_out[7*sigw+47]    = chon2;
-  assign auto_ss_out[7*sigw+48]    = chon3;
-  assign auto_ss_out[7*sigw+49]    = chon4;
-  assign auto_ss_out[6*sigw+:sigw] = inc4;
-  assign auto_ss_out[7*sigw+38+:9] = lut_addr2;
-  assign auto_ss_out[7*sigw+36]    = sign2;
-  assign auto_ss_out[7*sigw+37]    = sign3;
-  assign auto_ss_out[7*sigw+:6]    = step1;
-  assign auto_ss_out[7*sigw+6+:6]  = step2;
-  assign auto_ss_out[7*sigw+18+:6] = step3;
-  assign auto_ss_out[7*sigw+24+:6] = step4;
-  assign auto_ss_out[7*sigw+30+:6] = step5;
-  assign auto_ss_out[7*sigw+12+:6] = step6;
-  assign auto_ss_out[0+:sigw]      = x1;
-  assign auto_ss_out[sigw+:sigw]   = x2;
-  assign auto_ss_out[2*sigw+:sigw] = x3;
-  assign auto_ss_out[3*sigw+:sigw] = x4;
-  assign auto_ss_out[4*sigw+:sigw] = x5;
-  assign auto_ss_out[5*sigw+:sigw] = x6;
+  always_comb begin
+    auto_ss_local_data_out = 32'h0;
+    auto_ss_local_ack      = 1'b0;
+    if (auto_ss_rd && device_match) begin
+      case (auto_ss_state_idx)
+        0: begin
+          auto_ss_local_data_out[26:0] = {step3, step2, step1, lut_addr2};
+          auto_ss_local_ack            = 1'b1;
+        end
+        1: begin
+          auto_ss_local_data_out[22:0] = {sign3, sign2, chon4, chon3, chon2, step6, step5, step4};
+          auto_ss_local_ack            = 1'b1;
+        end
+        default: begin
+        end
+      endcase
+    end
+  end
 
 
 
@@ -5288,19 +6189,26 @@ module jt10_adpcm_gain (
     input [5:0] en_ch,
     input       match,
 
-    input         [  5:0] atl,         // ADPCM Total Level
+    input         [ 5:0] atl,                      // ADPCM Total Level
     // Gain update
-    input         [  7:0] lracl,
-    input         [  2:0] up_ch,
+    input         [ 7:0] lracl,
+    input         [ 2:0] up_ch,
     // Data
-    output        [  1:0] lr,
-    input  signed [ 15:0] pcm_in,
-    output signed [ 15:0] pcm_att,
-    input         [213:0] auto_ss_in,
-    input                 auto_ss_wr,
-    output        [213:0] auto_ss_out
+    output        [ 1:0] lr,
+    input  signed [15:0] pcm_in,
+    output signed [15:0] pcm_att,
+    input                auto_ss_rd,
+    input                auto_ss_wr,
+    input         [31:0] auto_ss_data_in,
+    input         [ 7:0] auto_ss_device_idx,
+    input         [15:0] auto_ss_state_idx,
+    input         [ 7:0] auto_ss_base_device_idx,
+    output logic  [31:0] auto_ss_data_out,
+    output logic         auto_ss_ack
 
 );
+  wire device_match = (auto_ss_device_idx == auto_ss_base_device_idx);
+
   genvar auto_ss_idx;
 
 
@@ -5352,19 +6260,28 @@ module jt10_adpcm_gain (
       sh6    <= 4'd0;
       lin1   <= 10'd0;
       lin6   <= 10'd0;
-    end else if (auto_ss_wr) begin
-      integer auto_ss_idx;
-      db5    <= auto_ss_in[78+:7];
-      lin1   <= auto_ss_in[0+:10];
-      lin6   <= auto_ss_in[20+:10];
-      lracl1 <= auto_ss_in[30+:8];
-      lracl2 <= auto_ss_in[38+:8];
-      lracl3 <= auto_ss_in[46+:8];
-      lracl4 <= auto_ss_in[54+:8];
-      lracl5 <= auto_ss_in[62+:8];
-      lracl6 <= auto_ss_in[70+:8];
-      sh1    <= auto_ss_in[85+:4];
-      sh6    <= auto_ss_in[89+:4];
+    end else if (auto_ss_wr && device_match) begin
+      case (auto_ss_state_idx)
+        3: begin
+          lin1 <= auto_ss_data_in[9:0];
+          lin6 <= auto_ss_data_in[19:10];
+        end
+        4: begin
+          lracl1 <= auto_ss_data_in[7:0];
+          lracl2 <= auto_ss_data_in[15:8];
+          lracl3 <= auto_ss_data_in[23:16];
+          lracl4 <= auto_ss_data_in[31:24];
+        end
+        5: begin
+          lracl5 <= auto_ss_data_in[7:0];
+          lracl6 <= auto_ss_data_in[15:8];
+          db5    <= auto_ss_data_in[22:16];
+          sh1    <= auto_ss_data_in[26:23];
+          sh6    <= auto_ss_data_in[30:27];
+        end
+        default: begin
+        end
+      endcase
     end else if (cen) begin
 
       // I
@@ -5385,19 +6302,6 @@ module jt10_adpcm_gain (
       lin1   <= sh6[3] ? 10'h0 : lin6;
       sh1    <= sh6;
     end
-  assign auto_ss_out[78+:7]  = db5;
-  assign auto_ss_out[0+:10]  = lin1;
-  assign auto_ss_out[20+:10] = lin6;
-  assign auto_ss_out[30+:8]  = lracl1;
-  assign auto_ss_out[38+:8]  = lracl2;
-  assign auto_ss_out[46+:8]  = lracl3;
-  assign auto_ss_out[54+:8]  = lracl4;
-  assign auto_ss_out[62+:8]  = lracl5;
-  assign auto_ss_out[70+:8]  = lracl6;
-  assign auto_ss_out[85+:4]  = sh1;
-  assign auto_ss_out[89+:4]  = sh6;
-
-
 
   // Apply gain
   // The pipeline has 6 stages, there is new input data once every 6*6=36 clock cycles
@@ -5437,22 +6341,35 @@ module jt10_adpcm_gain (
       shcnt4 <= 'd0;
       shcnt5 <= 'd0;
       shcnt6 <= 'd0;
-    end else if (auto_ss_wr) begin
-      integer auto_ss_idx;
-      lin2   <= auto_ss_in[10+:10];
-      match2 <= auto_ss_in[213];
-      pcm1   <= auto_ss_in[117+:16];
-      pcm2   <= auto_ss_in[133+:16];
-      pcm3   <= auto_ss_in[149+:16];
-      pcm4   <= auto_ss_in[165+:16];
-      pcm5   <= auto_ss_in[181+:16];
-      pcm6   <= auto_ss_in[197+:16];
-      shcnt1 <= auto_ss_in[93+:4];
-      shcnt2 <= auto_ss_in[97+:4];
-      shcnt3 <= auto_ss_in[101+:4];
-      shcnt4 <= auto_ss_in[105+:4];
-      shcnt5 <= auto_ss_in[109+:4];
-      shcnt6 <= auto_ss_in[113+:4];
+    end else if (auto_ss_wr && device_match) begin
+      case (auto_ss_state_idx)
+        0: begin
+          pcm1 <= auto_ss_data_in[15:0];
+          pcm2 <= auto_ss_data_in[31:16];
+        end
+        1: begin
+          pcm3 <= auto_ss_data_in[15:0];
+          pcm4 <= auto_ss_data_in[31:16];
+        end
+        2: begin
+          pcm5 <= auto_ss_data_in[15:0];
+          pcm6 <= auto_ss_data_in[31:16];
+        end
+        3: begin
+          lin2 <= auto_ss_data_in[29:20];
+        end
+        6: begin
+          shcnt1 <= auto_ss_data_in[3:0];
+          shcnt2 <= auto_ss_data_in[7:4];
+          shcnt3 <= auto_ss_data_in[11:8];
+          shcnt4 <= auto_ss_data_in[15:12];
+          shcnt5 <= auto_ss_data_in[19:16];
+          shcnt6 <= auto_ss_data_in[23:20];
+          match2 <= auto_ss_data_in[24];
+        end
+        default: begin
+        end
+      endcase
     end else if (cen) begin
       // I
       pcm2   <= match ? pcm_in : pcm1;
@@ -5490,20 +6407,44 @@ module jt10_adpcm_gain (
       pcm1   <= pcm6;
       shcnt1 <= shcnt6;
     end
-  assign auto_ss_out[10+:10]  = lin2;
-  assign auto_ss_out[213]     = match2;
-  assign auto_ss_out[117+:16] = pcm1;
-  assign auto_ss_out[133+:16] = pcm2;
-  assign auto_ss_out[149+:16] = pcm3;
-  assign auto_ss_out[165+:16] = pcm4;
-  assign auto_ss_out[181+:16] = pcm5;
-  assign auto_ss_out[197+:16] = pcm6;
-  assign auto_ss_out[93+:4]   = shcnt1;
-  assign auto_ss_out[97+:4]   = shcnt2;
-  assign auto_ss_out[101+:4]  = shcnt3;
-  assign auto_ss_out[105+:4]  = shcnt4;
-  assign auto_ss_out[109+:4]  = shcnt5;
-  assign auto_ss_out[113+:4]  = shcnt6;
+  always_comb begin
+    auto_ss_data_out = 32'h0;
+    auto_ss_ack      = 1'b0;
+    if (auto_ss_rd && device_match) begin
+      case (auto_ss_state_idx)
+        0: begin
+          auto_ss_data_out[31:0] = {pcm2, pcm1};
+          auto_ss_ack            = 1'b1;
+        end
+        1: begin
+          auto_ss_data_out[31:0] = {pcm4, pcm3};
+          auto_ss_ack            = 1'b1;
+        end
+        2: begin
+          auto_ss_data_out[31:0] = {pcm6, pcm5};
+          auto_ss_ack            = 1'b1;
+        end
+        3: begin
+          auto_ss_data_out[29:0] = {lin2, lin6, lin1};
+          auto_ss_ack            = 1'b1;
+        end
+        4: begin
+          auto_ss_data_out[31:0] = {lracl4, lracl3, lracl2, lracl1};
+          auto_ss_ack            = 1'b1;
+        end
+        5: begin
+          auto_ss_data_out[30:0] = {sh6, sh1, db5, lracl6, lracl5};
+          auto_ss_ack            = 1'b1;
+        end
+        6: begin
+          auto_ss_data_out[24:0] = {match2, shcnt6, shcnt5, shcnt4, shcnt3, shcnt2, shcnt1};
+          auto_ss_ack            = 1'b1;
+        end
+        default: begin
+        end
+      endcase
+    end
+  end
 
 
 
@@ -5522,13 +6463,20 @@ module jt10_adpcm_acc (
     input       match,
 
     input                    en_sum,
-    input  signed     [15:0] pcm_in,      // 18.5 kHz
+    input  signed     [15:0] pcm_in,                   // 18.5 kHz
     output reg signed [15:0] pcm_out,
-    input             [87:0] auto_ss_in,
+    input                    auto_ss_rd,
     input                    auto_ss_wr,
-    output            [87:0] auto_ss_out
+    input             [31:0] auto_ss_data_in,
+    input             [ 7:0] auto_ss_device_idx,
+    input             [15:0] auto_ss_state_idx,
+    input             [ 7:0] auto_ss_base_device_idx,
+    output logic      [31:0] auto_ss_data_out,
+    output logic             auto_ss_ack
     // 55.5 kHz
 );
+  wire device_match = (auto_ss_device_idx == auto_ss_base_device_idx);
+
   genvar auto_ss_idx;
 
 
@@ -5556,11 +6504,20 @@ module jt10_adpcm_acc (
       step <= 'd0;
       acc  <= 18'd0;
       last <= 18'd0;
-    end else if (auto_ss_wr) begin
-      integer auto_ss_idx;
-      acc  <= auto_ss_in[0+:18];
-      last <= auto_ss_in[18+:18];
-      step <= auto_ss_in[54+:18];
+    end else if (auto_ss_wr && device_match) begin
+      case (auto_ss_state_idx)
+        0: begin
+          acc <= auto_ss_data_in[17:0];
+        end
+        1: begin
+          last <= auto_ss_data_in[17:0];
+        end
+        2: begin
+          step <= auto_ss_data_in[17:0];
+        end
+        default: begin
+        end
+      endcase
     end else if (cen) begin
       if (match) acc <= cur_ch[0] ? pcm_in_long : (pcm_in_long + acc);
       if (adv) begin
@@ -5569,20 +6526,22 @@ module jt10_adpcm_acc (
         last <= acc;
       end
     end
-  assign auto_ss_out[0+:18]  = acc;
-  assign auto_ss_out[18+:18] = last;
-  assign auto_ss_out[54+:18] = step;
-
-
   wire overflow = |pcm_full[17:15] & ~&pcm_full[17:15];
 
   always @(posedge clk or negedge rst_n)
     if (!rst_n) begin
       pcm_full <= 18'd0;
-    end else if (auto_ss_wr) begin
-      integer auto_ss_idx;
-      pcm_full <= auto_ss_in[36+:18];
-      pcm_out  <= auto_ss_in[72+:16];
+    end else if (auto_ss_wr && device_match) begin
+      case (auto_ss_state_idx)
+        3: begin
+          pcm_full <= auto_ss_data_in[17:0];
+        end
+        4: begin
+          pcm_out <= auto_ss_data_in[15:0];
+        end
+        default: begin
+        end
+      endcase
     end else if (cen && cur_ch[0]) begin
       case (en_ch)
         6'b000_001: pcm_full <= last;
@@ -5592,8 +6551,36 @@ module jt10_adpcm_acc (
       if (overflow) pcm_out <= pcm_full[17] ? 16'h8000 : 16'h7fff;  // saturate
       else pcm_out <= pcm_full[15:0];
     end
-  assign auto_ss_out[36+:18] = pcm_full;
-  assign auto_ss_out[72+:16] = pcm_out;
+  always_comb begin
+    auto_ss_data_out = 32'h0;
+    auto_ss_ack      = 1'b0;
+    if (auto_ss_rd && device_match) begin
+      case (auto_ss_state_idx)
+        0: begin
+          auto_ss_data_out[18-1:0] = acc;
+          auto_ss_ack              = 1'b1;
+        end
+        1: begin
+          auto_ss_data_out[18-1:0] = last;
+          auto_ss_ack              = 1'b1;
+        end
+        2: begin
+          auto_ss_data_out[18-1:0] = step;
+          auto_ss_ack              = 1'b1;
+        end
+        3: begin
+          auto_ss_data_out[18-1:0] = pcm_full;
+          auto_ss_ack              = 1'b1;
+        end
+        4: begin
+          auto_ss_data_out[16-1:0] = pcm_out;
+          auto_ss_ack              = 1'b1;
+        end
+        default: begin
+        end
+      endcase
+    end
+  end
 
 
 
@@ -5632,14 +6619,49 @@ module jt10_adpcm_drvA (
     output [5:0] flags,
     input  [5:0] clr_flags,
 
-    output signed [ 15:0] pcm55_l,
-    output signed [ 15:0] pcm55_r,
-    input         [  5:0] ch_enable,
-    input         [923:0] auto_ss_in,
-    input                 auto_ss_wr,
-    output        [923:0] auto_ss_out
+    output signed [15:0] pcm55_l,
+    output signed [15:0] pcm55_r,
+    input         [ 5:0] ch_enable,
+    input                auto_ss_rd,
+    input                auto_ss_wr,
+    input         [31:0] auto_ss_data_in,
+    input         [ 7:0] auto_ss_device_idx,
+    input         [15:0] auto_ss_state_idx,
+    input         [ 7:0] auto_ss_base_device_idx,
+    output logic  [31:0] auto_ss_data_out,
+    output logic         auto_ss_ack
 
 );
+  assign auto_ss_ack = auto_ss_local_ack | auto_ss_u_cnt_ack | auto_ss_u_decoder_ack | auto_ss_u_gain_ack | auto_ss_u_acc_left_ack | auto_ss_u_acc_right_ack;
+
+  assign auto_ss_data_out = auto_ss_local_data_out | auto_ss_u_cnt_data_out | auto_ss_u_decoder_data_out | auto_ss_u_gain_data_out | auto_ss_u_acc_left_data_out | auto_ss_u_acc_right_data_out;
+
+  logic        auto_ss_local_ack;
+
+  logic [31:0] auto_ss_local_data_out;
+
+  wire         auto_ss_u_acc_right_ack;
+
+  wire  [31:0] auto_ss_u_acc_right_data_out;
+
+  wire         auto_ss_u_acc_left_ack;
+
+  wire  [31:0] auto_ss_u_acc_left_data_out;
+
+  wire         auto_ss_u_gain_ack;
+
+  wire  [31:0] auto_ss_u_gain_data_out;
+
+  wire         auto_ss_u_decoder_ack;
+
+  wire  [31:0] auto_ss_u_decoder_data_out;
+
+  wire         auto_ss_u_cnt_ack;
+
+  wire  [31:0] auto_ss_u_cnt_data_out;
+
+  wire         device_match = (auto_ss_device_idx == auto_ss_base_device_idx);
+
   genvar auto_ss_idx;
 
 
@@ -5652,15 +6674,17 @@ module jt10_adpcm_drvA (
   always @(posedge clk or negedge rst_n)
     if (!rst_n) begin
       data <= 4'd0;
-    end else if (auto_ss_wr) begin
-      integer auto_ss_idx;
-      data <= auto_ss_in[12+:4];
+    end else if (auto_ss_wr && device_match) begin
+      case (auto_ss_state_idx)
+        1: begin
+          data <= auto_ss_data_in[3:0];
+        end
+        default: begin
+        end
+      endcase
     end else if (cen) begin
       data <= !nibble_sel ? datain[7:4] : datain[3:0];
     end
-  assign auto_ss_out[12+:4] = data;
-
-
 
   reg [5:0] aon_sr, aoff_sr;
 
@@ -5671,14 +6695,16 @@ module jt10_adpcm_drvA (
       if (up_aon) aon_cmd_cpy <= aon_cmd;
       else if (cur_ch[5] && cen6) aon_cmd_cpy <= 8'd0;
     end
-    if (auto_ss_wr) begin
-      integer auto_ss_idx;
-      aon_cmd_cpy <= auto_ss_in[28+:8];
+    if (auto_ss_wr && device_match) begin
+      case (auto_ss_state_idx)
+        0: begin
+          aon_cmd_cpy <= auto_ss_data_in[7:0];
+        end
+        default: begin
+        end
+      endcase
     end
   end
-
-
-  assign auto_ss_out[28+:8] = aon_cmd_cpy;
 
 
 
@@ -5692,16 +6718,17 @@ module jt10_adpcm_drvA (
         aoff_sr <= {1'b0, aoff_sr[5:1]};
       end
     end
-    if (auto_ss_wr) begin
-      integer auto_ss_idx;
-      aoff_sr <= auto_ss_in[22+:6];
-      aon_sr  <= auto_ss_in[16+:6];
+    if (auto_ss_wr && device_match) begin
+      case (auto_ss_state_idx)
+        0: begin
+          aoff_sr <= auto_ss_data_in[13:8];
+          aon_sr  <= auto_ss_data_in[19:14];
+        end
+        default: begin
+        end
+      endcase
     end
   end
-
-
-  assign auto_ss_out[22+:6] = aoff_sr;
-  assign auto_ss_out[16+:6] = aon_sr;
 
 
 
@@ -5715,19 +6742,41 @@ module jt10_adpcm_drvA (
       cur_ch <= 6'b1;
       en_ch  <= 6'b1;
       match  <= 0;
-    end else if (auto_ss_wr) begin
-      integer auto_ss_idx;
-      cur_ch <= auto_ss_in[0+:6];
-      en_ch  <= auto_ss_in[6+:6];
-      match  <= auto_ss_in[36];
+    end else if (auto_ss_wr && device_match) begin
+      case (auto_ss_state_idx)
+        0: begin
+          cur_ch <= auto_ss_data_in[25:20];
+          en_ch  <= auto_ss_data_in[31:26];
+        end
+        1: begin
+          match <= auto_ss_data_in[4];
+        end
+        default: begin
+        end
+      endcase
     end else if (cen6) begin
       cur_ch <= cur_next;
       if (cur_ch[5]) en_ch <= en_next;
       match <= cur_next == (cur_ch[5] ? en_next : en_ch);
     end
-  assign auto_ss_out[0+:6] = cur_ch;
-  assign auto_ss_out[6+:6] = en_ch;
-  assign auto_ss_out[36]   = match;
+  always_comb begin
+    auto_ss_local_data_out = 32'h0;
+    auto_ss_local_ack      = 1'b0;
+    if (auto_ss_rd && device_match) begin
+      case (auto_ss_state_idx)
+        0: begin
+          auto_ss_local_data_out[31:0] = {en_ch, cur_ch, aon_sr, aoff_sr, aon_cmd_cpy};
+          auto_ss_local_ack            = 1'b1;
+        end
+        1: begin
+          auto_ss_local_data_out[4:0] = {match, data};
+          auto_ss_local_ack           = 1'b1;
+        end
+        default: begin
+        end
+      endcase
+    end
+  end
 
 
 
@@ -5736,35 +6785,40 @@ module jt10_adpcm_drvA (
   wire clr_dec, decon;
 
   jt10_adpcm_cnt u_cnt (
-      .rst_n      (rst_n),
-      .clk        (clk),
-      .cen        (cen6),
+      .rst_n                  (rst_n),
+      .clk                    (clk),
+      .cen                    (cen6),
       // Pipeline
-      .cur_ch     (cur_ch),
-      .en_ch      (en_ch),
+      .cur_ch                 (cur_ch),
+      .en_ch                  (en_ch),
       // START/END update
-      .addr_in    (addr_in),
-      .addr_ch    (up_addr),
-      .up_start   (up_start),
-      .up_end     (up_end),
+      .addr_in                (addr_in),
+      .addr_ch                (up_addr),
+      .up_start               (up_start),
+      .up_end                 (up_end),
       // Control
-      .aon        (aon_sr[0]),
-      .aoff       (aoff_sr[0]),
-      .clr        (clr_dec),
+      .aon                    (aon_sr[0]),
+      .aoff                   (aoff_sr[0]),
+      .clr                    (clr_dec),
       // ROM driver
-      .addr_out   (addr),
-      .bank       (bank),
-      .sel        (nibble_sel),
-      .roe_n      (roe_n),
-      .decon      (decon),
+      .addr_out               (addr),
+      .bank                   (bank),
+      .sel                    (nibble_sel),
+      .roe_n                  (roe_n),
+      .decon                  (decon),
       // Flags
-      .flags      (flags),
-      .clr_flags  (clr_flags),
-      .start_top  (start_top),
-      .end_top    (end_top),
-      .auto_ss_in (auto_ss_in[37+:351]),
-      .auto_ss_out(auto_ss_out[37+:351]),
-      .auto_ss_wr (auto_ss_wr)
+      .flags                  (flags),
+      .clr_flags              (clr_flags),
+      .start_top              (start_top),
+      .end_top                (end_top),
+      .auto_ss_rd             (auto_ss_rd),
+      .auto_ss_wr             (auto_ss_wr),
+      .auto_ss_data_in        (auto_ss_data_in),
+      .auto_ss_device_idx     (auto_ss_device_idx),
+      .auto_ss_state_idx      (auto_ss_state_idx),
+      .auto_ss_base_device_idx(auto_ss_base_device_idx + 1),
+      .auto_ss_data_out       (auto_ss_u_cnt_data_out),
+      .auto_ss_ack            (auto_ss_u_cnt_ack)
 
   );
 
@@ -5772,16 +6826,21 @@ module jt10_adpcm_drvA (
   wire signed [15:0] pcmdec;
 
   jt10_adpcm u_decoder (
-      .rst_n      (rst_n),
-      .clk        (clk),
-      .cen        (cen6),
-      .data       (data),
-      .chon       (decon),
-      .clr        (clr_dec),
-      .pcm        (pcmdec),
-      .auto_ss_in (auto_ss_in[388+:146]),
-      .auto_ss_out(auto_ss_out[388+:146]),
-      .auto_ss_wr (auto_ss_wr)
+      .rst_n                  (rst_n),
+      .clk                    (clk),
+      .cen                    (cen6),
+      .data                   (data),
+      .chon                   (decon),
+      .clr                    (clr_dec),
+      .pcm                    (pcmdec),
+      .auto_ss_rd             (auto_ss_rd),
+      .auto_ss_wr             (auto_ss_wr),
+      .auto_ss_data_in        (auto_ss_data_in),
+      .auto_ss_device_idx     (auto_ss_device_idx),
+      .auto_ss_state_idx      (auto_ss_state_idx),
+      .auto_ss_base_device_idx(auto_ss_base_device_idx + 2),
+      .auto_ss_data_out       (auto_ss_u_decoder_data_out),
+      .auto_ss_ack            (auto_ss_u_decoder_ack)
 
   );
   /*
@@ -5809,12 +6868,17 @@ end
       .lracl (lracl_in),
       .up_ch (up_lracl),
 
-      .lr         (lr),
-      .pcm_in     (pcmdec),
-      .pcm_att    (pcm_att),
-      .auto_ss_in (auto_ss_in[534+:214]),
-      .auto_ss_out(auto_ss_out[534+:214]),
-      .auto_ss_wr (auto_ss_wr)
+      .lr                     (lr),
+      .pcm_in                 (pcmdec),
+      .pcm_att                (pcm_att),
+      .auto_ss_rd             (auto_ss_rd),
+      .auto_ss_wr             (auto_ss_wr),
+      .auto_ss_data_in        (auto_ss_data_in),
+      .auto_ss_device_idx     (auto_ss_device_idx),
+      .auto_ss_state_idx      (auto_ss_state_idx),
+      .auto_ss_base_device_idx(auto_ss_base_device_idx + 4),
+      .auto_ss_data_out       (auto_ss_u_gain_data_out),
+      .auto_ss_ack            (auto_ss_u_gain_ack)
 
   );
 
@@ -5834,11 +6898,16 @@ end
       // left/right enable
       .en_sum(lr[1] & |(ch_enable & cur_ch)),
 
-      .pcm_in     (pcm_att),               // 18.5 kHz
-      .pcm_out    (pre_pcm55_l),
-      .auto_ss_in (auto_ss_in[748+:88]),
-      .auto_ss_out(auto_ss_out[748+:88]),
-      .auto_ss_wr (auto_ss_wr)
+      .pcm_in                 (pcm_att),                      // 18.5 kHz
+      .pcm_out                (pre_pcm55_l),
+      .auto_ss_rd             (auto_ss_rd),
+      .auto_ss_wr             (auto_ss_wr),
+      .auto_ss_data_in        (auto_ss_data_in),
+      .auto_ss_device_idx     (auto_ss_device_idx),
+      .auto_ss_state_idx      (auto_ss_state_idx),
+      .auto_ss_base_device_idx(auto_ss_base_device_idx + 5),
+      .auto_ss_data_out       (auto_ss_u_acc_left_data_out),
+      .auto_ss_ack            (auto_ss_u_acc_left_ack)
       // 55.5 kHz
   );
 
@@ -5853,11 +6922,16 @@ end
       // left/right enable
       .en_sum(lr[0] & |(ch_enable & cur_ch)),
 
-      .pcm_in     (pcm_att),               // 18.5 kHz
-      .pcm_out    (pre_pcm55_r),
-      .auto_ss_in (auto_ss_in[836+:88]),
-      .auto_ss_out(auto_ss_out[836+:88]),
-      .auto_ss_wr (auto_ss_wr)
+      .pcm_in                 (pcm_att),                       // 18.5 kHz
+      .pcm_out                (pre_pcm55_r),
+      .auto_ss_rd             (auto_ss_rd),
+      .auto_ss_wr             (auto_ss_wr),
+      .auto_ss_data_in        (auto_ss_data_in),
+      .auto_ss_device_idx     (auto_ss_device_idx),
+      .auto_ss_state_idx      (auto_ss_state_idx),
+      .auto_ss_base_device_idx(auto_ss_base_device_idx + 6),
+      .auto_ss_data_out       (auto_ss_u_acc_right_data_out),
+      .auto_ss_ack            (auto_ss_u_acc_right_ack)
       // 55.5 kHz
   );
 
@@ -5891,12 +6965,19 @@ module jt10_adpcmb_cnt (
     input             clr_flag,
     output reg        clr_dec,
 
-    output reg        adv,
-    input      [47:0] auto_ss_in,
-    input             auto_ss_wr,
-    output     [47:0] auto_ss_out
+    output reg          adv,
+    input               auto_ss_rd,
+    input               auto_ss_wr,
+    input        [31:0] auto_ss_data_in,
+    input        [ 7:0] auto_ss_device_idx,
+    input        [15:0] auto_ss_state_idx,
+    input        [ 7:0] auto_ss_base_device_idx,
+    output logic [31:0] auto_ss_data_out,
+    output logic        auto_ss_ack
 
 );
+  wire device_match = (auto_ss_device_idx == auto_ss_base_device_idx);
+
   genvar auto_ss_idx;
 
 
@@ -5907,10 +6988,15 @@ module jt10_adpcmb_cnt (
     if (!rst_n) begin
       cnt <= 'd0;
       adv <= 'b0;
-    end else if (auto_ss_wr) begin
-      integer auto_ss_idx;
-      adv <= auto_ss_in[47];
-      cnt <= auto_ss_in[0+:16];
+    end else if (auto_ss_wr && device_match) begin
+      case (auto_ss_state_idx)
+        1: begin
+          cnt <= auto_ss_data_in[15:0];
+          adv <= auto_ss_data_in[16];
+        end
+        default: begin
+        end
+      endcase
     end else if (cen) begin
       if (clr) begin
         cnt <= 'd0;
@@ -5924,10 +7010,6 @@ module jt10_adpcmb_cnt (
         end
       end
     end
-  assign auto_ss_out[47]    = adv;
-  assign auto_ss_out[0+:16] = cnt;
-
-
 
   reg set_flag, last_set;
   reg restart;
@@ -5936,19 +7018,20 @@ module jt10_adpcmb_cnt (
     if (!rst_n) begin
       flag     <= 1'b0;
       last_set <= 'b0;
-    end else if (auto_ss_wr) begin
-      integer auto_ss_idx;
-      flag     <= auto_ss_in[45];
-      last_set <= auto_ss_in[17];
+    end else if (auto_ss_wr && device_match) begin
+      case (auto_ss_state_idx)
+        1: begin
+          flag     <= auto_ss_data_in[17];
+          last_set <= auto_ss_data_in[18];
+        end
+        default: begin
+        end
+      endcase
     end else begin
       last_set <= set_flag;
       if (clr_flag) flag <= 1'b0;
       if (!last_set && set_flag) flag <= 1'b1;
     end
-  assign auto_ss_out[45] = flag;
-  assign auto_ss_out[17] = last_set;
-
-
 
   // Address
   always @(posedge clk or negedge rst_n)
@@ -5959,14 +7042,21 @@ module jt10_adpcmb_cnt (
       chon       <= 'b0;
       restart    <= 'b0;
       clr_dec    <= 'b1;
-    end else if (auto_ss_wr) begin
-      integer auto_ss_idx;
-      addr       <= auto_ss_in[19+:24];
-      chon       <= auto_ss_in[44];
-      clr_dec    <= auto_ss_in[46];
-      nibble_sel <= auto_ss_in[43];
-      restart    <= auto_ss_in[18];
-      set_flag   <= auto_ss_in[16];
+    end else if (auto_ss_wr && device_match) begin
+      case (auto_ss_state_idx)
+        0: begin
+          addr <= auto_ss_data_in[23:0];
+        end
+        1: begin
+          chon       <= auto_ss_data_in[19];
+          clr_dec    <= auto_ss_data_in[20];
+          nibble_sel <= auto_ss_data_in[21];
+          restart    <= auto_ss_data_in[22];
+          set_flag   <= auto_ss_data_in[23];
+        end
+        default: begin
+        end
+      endcase
     end else if (!on || clr) begin
       restart <= 'd0;
       chon    <= 'd0;
@@ -5994,12 +7084,26 @@ module jt10_adpcmb_cnt (
         end
       end
     end
-  assign auto_ss_out[19+:24] = addr;
-  assign auto_ss_out[44]     = chon;
-  assign auto_ss_out[46]     = clr_dec;
-  assign auto_ss_out[43]     = nibble_sel;
-  assign auto_ss_out[18]     = restart;
-  assign auto_ss_out[16]     = set_flag;
+  always_comb begin
+    auto_ss_data_out = 32'h0;
+    auto_ss_ack      = 1'b0;
+    if (auto_ss_rd && device_match) begin
+      case (auto_ss_state_idx)
+        0: begin
+          auto_ss_data_out[24-1:0] = addr;
+          auto_ss_ack              = 1'b1;
+        end
+        1: begin
+          auto_ss_data_out[23:0] = {
+            set_flag, restart, nibble_sel, clr_dec, chon, last_set, flag, adv, cnt
+          };
+          auto_ss_ack = 1'b1;
+        end
+        default: begin
+        end
+      endcase
+    end
+  end
 
   // cen
 
@@ -6018,11 +7122,18 @@ module jt10_adpcmb (
     input adv,
     input clr,
     output signed [15:0] pcm,
-    input [2*stepw + 4*xw + 14:0] auto_ss_in,
+    input auto_ss_rd,
     input auto_ss_wr,
-    output [2*stepw + 4*xw + 14:0] auto_ss_out
+    input [31:0] auto_ss_data_in,
+    input [7:0] auto_ss_device_idx,
+    input [15:0] auto_ss_state_idx,
+    input [7:0] auto_ss_base_device_idx,
+    output logic [31:0] auto_ss_data_out,
+    output logic auto_ss_ack
 
 );
+  wire device_match = (auto_ss_device_idx == auto_ss_base_device_idx);
+
   genvar auto_ss_idx;
 
 
@@ -6074,21 +7185,20 @@ module jt10_adpcmb (
       d3       <= 'd0;
       d4       <= 'd0;
       need_clr <= 0;
-    end else if (auto_ss_wr) begin
-      integer auto_ss_idx;
-      adv2       <= auto_ss_in[2*stepw+4*xw+10+:4];
-      d2         <= auto_ss_in[2*stepw+4*xw+2+:4];
-      d3         <= auto_ss_in[2*stepw+2*xw+2+:xw];
-      d4         <= auto_ss_in[2*stepw+3*xw+2+:xw];
-      need_clr   <= auto_ss_in[2*stepw+4*xw+14];
-      next_step3 <= auto_ss_in[stepw+2*xw+:stepw+2];
-      next_x5    <= auto_ss_in[xw+:xw];
-      sign_data2 <= auto_ss_in[2*stepw+4*xw+6];
-      sign_data3 <= auto_ss_in[2*stepw+4*xw+7];
-      sign_data4 <= auto_ss_in[2*stepw+4*xw+8];
-      sign_data5 <= auto_ss_in[2*stepw+4*xw+9];
-      step1      <= auto_ss_in[2*xw+:stepw];
-      x1         <= auto_ss_in[0+:xw];
+    end else if (auto_ss_wr && device_match) begin
+      case (auto_ss_state_idx)
+        0: begin
+          adv2       <= auto_ss_data_in[3:0];
+          d2         <= auto_ss_data_in[7:4];
+          need_clr   <= auto_ss_data_in[8];
+          sign_data2 <= auto_ss_data_in[9];
+          sign_data3 <= auto_ss_data_in[10];
+          sign_data4 <= auto_ss_data_in[11];
+          sign_data5 <= auto_ss_data_in[12];
+        end
+        default: begin
+        end
+      endcase
     end else begin
       if (clr) need_clr <= 1'd1;
       if (cen) begin
@@ -6136,19 +7246,22 @@ module jt10_adpcmb (
         end
       end
     end
-  assign auto_ss_out[2*stepw+4*xw+10+:4]  = adv2;
-  assign auto_ss_out[2*stepw+4*xw+2+:4]   = d2;
-  assign auto_ss_out[2*stepw+2*xw+2+:xw]  = d3;
-  assign auto_ss_out[2*stepw+3*xw+2+:xw]  = d4;
-  assign auto_ss_out[2*stepw+4*xw+14]     = need_clr;
-  assign auto_ss_out[stepw+2*xw+:stepw+2] = next_step3;
-  assign auto_ss_out[xw+:xw]              = next_x5;
-  assign auto_ss_out[2*stepw+4*xw+6]      = sign_data2;
-  assign auto_ss_out[2*stepw+4*xw+7]      = sign_data3;
-  assign auto_ss_out[2*stepw+4*xw+8]      = sign_data4;
-  assign auto_ss_out[2*stepw+4*xw+9]      = sign_data5;
-  assign auto_ss_out[2*xw+:stepw]         = step1;
-  assign auto_ss_out[0+:xw]               = x1;
+  always_comb begin
+    auto_ss_data_out = 32'h0;
+    auto_ss_ack      = 1'b0;
+    if (auto_ss_rd && device_match) begin
+      case (auto_ss_state_idx)
+        0: begin
+          auto_ss_data_out[12:0] = {
+            sign_data5, sign_data4, sign_data3, sign_data2, need_clr, d2, adv2
+          };
+          auto_ss_ack = 1'b1;
+        end
+        default: begin
+        end
+      endcase
+    end
+  end
 
 
 
@@ -6160,20 +7273,27 @@ endmodule
 module jt10_adpcm_div #(
     parameter DW = 16
 ) (
-    input                   rst_n,
-    input                   clk,         // CPU clock
-    input                   cen,
-    input                   start,       // strobe
-    input      [    DW-1:0] a,
-    input      [    DW-1:0] b,
-    output reg [    DW-1:0] d,
-    output reg [    DW-1:0] r,
-    output                  working,
-    input      [3*DW - 1:0] auto_ss_in,
-    input                   auto_ss_wr,
-    output     [3*DW - 1:0] auto_ss_out
+    input                 rst_n,
+    input                 clk,                      // CPU clock
+    input                 cen,
+    input                 start,                    // strobe
+    input        [DW-1:0] a,
+    input        [DW-1:0] b,
+    output reg   [DW-1:0] d,
+    output reg   [DW-1:0] r,
+    output                working,
+    input                 auto_ss_rd,
+    input                 auto_ss_wr,
+    input        [  31:0] auto_ss_data_in,
+    input        [   7:0] auto_ss_device_idx,
+    input        [  15:0] auto_ss_state_idx,
+    input        [   7:0] auto_ss_base_device_idx,
+    output logic [  31:0] auto_ss_data_out,
+    output logic          auto_ss_ack
 
 );
+  wire device_match = (auto_ss_device_idx == auto_ss_base_device_idx);
+
   genvar auto_ss_idx;
 
 
@@ -6185,11 +7305,8 @@ module jt10_adpcm_div #(
   always @(posedge clk or negedge rst_n)
     if (!rst_n) begin
       cycle <= 'd0;
-    end else if (auto_ss_wr) begin
-      integer auto_ss_idx;
-      cycle <= auto_ss_in[0+:DW];
-      d     <= auto_ss_in[DW+:DW];
-      r     <= auto_ss_in[2*DW+:DW];
+    end else
+    if (auto_ss_wr && device_match) begin
     end else if (cen) begin
       if (start) begin
         cycle <= {DW{1'b1}};
@@ -6206,9 +7323,12 @@ module jt10_adpcm_div #(
         end
       end
     end
-  assign auto_ss_out[0+:DW]    = cycle;
-  assign auto_ss_out[DW+:DW]   = d;
-  assign auto_ss_out[2*DW+:DW] = r;
+  always_comb begin
+    auto_ss_data_out = 32'h0;
+    auto_ss_ack      = 1'b0;
+    if (auto_ss_rd && device_match) begin
+    end
+  end
 
 
 
@@ -6218,18 +7338,37 @@ endmodule
 ///////////////////////////////////////////
 // MODULE jt10_adpcmb_interpol
 module jt10_adpcmb_interpol (
-    input                          rst_n,
-    input                          clk,
-    input                          cen,         // 8MHz cen
-    input                          cen55,       // clk & cen55  =  55 kHz
-    input                          adv,
-    input  signed [          15:0] pcmdec,
-    output signed [          15:0] pcmout,
-    input         [stages + 139:0] auto_ss_in,
-    input                          auto_ss_wr,
-    output        [stages + 139:0] auto_ss_out
+    input                rst_n,
+    input                clk,
+    input                cen,                      // 8MHz cen
+    input                cen55,                    // clk & cen55  =  55 kHz
+    input                adv,
+    input  signed [15:0] pcmdec,
+    output signed [15:0] pcmout,
+    input                auto_ss_rd,
+    input                auto_ss_wr,
+    input         [31:0] auto_ss_data_in,
+    input         [ 7:0] auto_ss_device_idx,
+    input         [15:0] auto_ss_state_idx,
+    input         [ 7:0] auto_ss_base_device_idx,
+    output logic  [31:0] auto_ss_data_out,
+    output logic         auto_ss_ack
 
 );
+  assign auto_ss_ack      = auto_ss_local_ack | auto_ss_u_div_ack;
+
+  assign auto_ss_data_out = auto_ss_local_data_out | auto_ss_u_div_data_out;
+
+  logic        auto_ss_local_ack;
+
+  logic [31:0] auto_ss_local_data_out;
+
+  wire         auto_ss_u_div_ack;
+
+  wire  [31:0] auto_ss_u_div_data_out;
+
+  wire         device_match = (auto_ss_device_idx == auto_ss_base_device_idx);
+
   genvar auto_ss_idx;
 
 
@@ -6251,14 +7390,9 @@ module jt10_adpcmb_interpol (
     if (cen) begin
       adv2 <= {adv2[stages-2:0], cen55 & adv};  // give some time to get the data from memory
     end
-    if (auto_ss_wr) begin
-      integer auto_ss_idx;
-      adv2 <= auto_ss_in[58+:stages];
+    if (auto_ss_wr && device_match) begin
     end
   end
-
-
-  assign auto_ss_out[58+:stages] = adv2;
 
 
 
@@ -6269,16 +7403,17 @@ module jt10_adpcmb_interpol (
         deltan <= pre_dn;
       end else if (pre_dn != 4'hF) pre_dn <= pre_dn + 1'd1;
     end
-    if (auto_ss_wr) begin
-      integer auto_ss_idx;
-      deltan <= auto_ss_in[50+:4];
-      pre_dn <= auto_ss_in[54+:4];
+    if (auto_ss_wr && device_match) begin
+      case (auto_ss_state_idx)
+        3: begin
+          deltan <= auto_ss_data_in[3:0];
+          pre_dn <= auto_ss_data_in[7:4];
+        end
+        default: begin
+        end
+      endcase
     end
   end
-
-
-  assign auto_ss_out[50+:4] = deltan;
-  assign auto_ss_out[54+:4] = pre_dn;
 
 
 
@@ -6298,22 +7433,24 @@ module jt10_adpcmb_interpol (
         next_step_sign <= pre_dx[16];
       end
     end
-    if (auto_ss_wr) begin
-      integer auto_ss_idx;
-      delta_x        <= auto_ss_in[16+:16];
-      next_step_sign <= auto_ss_in[stages+91];
-      pcmlast        <= auto_ss_in[0+:16];
-      pre_dx         <= auto_ss_in[32+:17];
-      start_div      <= auto_ss_in[49];
+    if (auto_ss_wr && device_match) begin
+      case (auto_ss_state_idx)
+        0: begin
+          pre_dx <= auto_ss_data_in[16:0];
+        end
+        1: begin
+          delta_x <= auto_ss_data_in[15:0];
+          pcmlast <= auto_ss_data_in[31:16];
+        end
+        3: begin
+          next_step_sign <= auto_ss_data_in[8];
+          start_div      <= auto_ss_data_in[9];
+        end
+        default: begin
+        end
+      endcase
     end
   end
-
-
-  assign auto_ss_out[16+:16]    = delta_x;
-  assign auto_ss_out[stages+91] = next_step_sign;
-  assign auto_ss_out[0+:16]     = pcmlast;
-  assign auto_ss_out[32+:17]    = pre_dx;
-  assign auto_ss_out[49]        = start_div;
 
 
 
@@ -6326,36 +7463,71 @@ module jt10_adpcmb_interpol (
       end else
         pcminter <= ( (pcminter < pcmlast) == step_sign ) ? pcminter : step_sign ? pcminter - step : pcminter + step;
     end
-    if (auto_ss_wr) begin
-      integer auto_ss_idx;
-      pcminter  <= auto_ss_in[stages+58+:16];
-      step      <= auto_ss_in[stages+74+:16];
-      step_sign <= auto_ss_in[stages+90];
+    if (auto_ss_wr && device_match) begin
+      case (auto_ss_state_idx)
+        2: begin
+          pcminter <= auto_ss_data_in[15:0];
+          step     <= auto_ss_data_in[31:16];
+        end
+        3: begin
+          step_sign <= auto_ss_data_in[10];
+        end
+        default: begin
+        end
+      endcase
     end
   end
 
 
-  assign auto_ss_out[stages+58+:16] = pcminter;
-  assign auto_ss_out[stages+74+:16] = step;
-  assign auto_ss_out[stages+90]     = step_sign;
+  always_comb begin
+    auto_ss_local_data_out = 32'h0;
+    auto_ss_local_ack      = 1'b0;
+    if (auto_ss_rd && device_match) begin
+      case (auto_ss_state_idx)
+        0: begin
+          auto_ss_local_data_out[17-1:0] = pre_dx;
+          auto_ss_local_ack              = 1'b1;
+        end
+        1: begin
+          auto_ss_local_data_out[31:0] = {pcmlast, delta_x};
+          auto_ss_local_ack            = 1'b1;
+        end
+        2: begin
+          auto_ss_local_data_out[31:0] = {step, pcminter};
+          auto_ss_local_ack            = 1'b1;
+        end
+        3: begin
+          auto_ss_local_data_out[10:0] = {step_sign, start_div, next_step_sign, pre_dn, deltan};
+          auto_ss_local_ack            = 1'b1;
+        end
+        default: begin
+        end
+      endcase
+    end
+  end
 
 
 
   jt10_adpcm_div #(
       .DW(16)
   ) u_div (
-      .rst_n      (rst_n),
-      .clk        (clk),
-      .cen        (cen),
-      .start      (start_div),
-      .a          (delta_x),
-      .b          ({12'd0, deltan}),
-      .d          (next_step),
-      .r          (),
-      .working    (),
-      .auto_ss_in (auto_ss_in[stages+92+:48]),
-      .auto_ss_out(auto_ss_out[stages+92+:48]),
-      .auto_ss_wr (auto_ss_wr)
+      .rst_n                  (rst_n),
+      .clk                    (clk),
+      .cen                    (cen),
+      .start                  (start_div),
+      .a                      (delta_x),
+      .b                      ({12'd0, deltan}),
+      .d                      (next_step),
+      .r                      (),
+      .working                (),
+      .auto_ss_rd             (auto_ss_rd),
+      .auto_ss_wr             (auto_ss_wr),
+      .auto_ss_data_in        (auto_ss_data_in),
+      .auto_ss_device_idx     (auto_ss_device_idx),
+      .auto_ss_state_idx      (auto_ss_state_idx),
+      .auto_ss_base_device_idx(auto_ss_base_device_idx + 1),
+      .auto_ss_data_out       (auto_ss_u_div_data_out),
+      .auto_ss_ack            (auto_ss_u_div_ack)
 
   );
 
@@ -6367,16 +7539,23 @@ endmodule
 // MODULE jt10_adpcmb_gain
 module jt10_adpcmb_gain (
     input                    rst_n,
-    input                    clk,         // CPU clock
+    input                    clk,                      // CPU clock
     input                    cen55,
-    input             [ 7:0] tl,          // ADPCM Total Level
+    input             [ 7:0] tl,                       // ADPCM Total Level
     input  signed     [15:0] pcm_in,
     output reg signed [15:0] pcm_out,
-    input             [15:0] auto_ss_in,
+    input                    auto_ss_rd,
     input                    auto_ss_wr,
-    output            [15:0] auto_ss_out
+    input             [31:0] auto_ss_data_in,
+    input             [ 7:0] auto_ss_device_idx,
+    input             [15:0] auto_ss_state_idx,
+    input             [ 7:0] auto_ss_base_device_idx,
+    output logic      [31:0] auto_ss_data_out,
+    output logic             auto_ss_ack
 
 );
+  wire device_match = (auto_ss_device_idx == auto_ss_base_device_idx);
+
   genvar auto_ss_idx;
 
 
@@ -6385,14 +7564,32 @@ module jt10_adpcmb_gain (
 
   always @(posedge clk) begin
     if (cen55) pcm_out <= pcm_mul[23:8];
-    if (auto_ss_wr) begin
-      integer auto_ss_idx;
-      pcm_out <= auto_ss_in[0+:16];
+    if (auto_ss_wr && device_match) begin
+      case (auto_ss_state_idx)
+        0: begin
+          pcm_out <= auto_ss_data_in[15:0];
+        end
+        default: begin
+        end
+      endcase
     end
   end
 
 
-  assign auto_ss_out[0+:16] = pcm_out;
+  always_comb begin
+    auto_ss_data_out = 32'h0;
+    auto_ss_ack      = 1'b0;
+    if (auto_ss_rd && device_match) begin
+      case (auto_ss_state_idx)
+        0: begin
+          auto_ss_data_out[16-1:0] = pcm_out;
+          auto_ss_ack              = 1'b1;
+        end
+        default: begin
+        end
+      endcase
+    end
+  end
 
 
 
@@ -6423,13 +7620,44 @@ module jt10_adpcm_drvB (
     input      [ 7:0] data,
     output reg        roe_n,
 
-    output reg signed [ 15:0] pcm55_l,
-    output reg signed [ 15:0] pcm55_r,
-    input             [355:0] auto_ss_in,
-    input                     auto_ss_wr,
-    output            [355:0] auto_ss_out
+    output reg signed [15:0] pcm55_l,
+    output reg signed [15:0] pcm55_r,
+    input                    auto_ss_rd,
+    input                    auto_ss_wr,
+    input             [31:0] auto_ss_data_in,
+    input             [ 7:0] auto_ss_device_idx,
+    input             [15:0] auto_ss_state_idx,
+    input             [ 7:0] auto_ss_base_device_idx,
+    output logic      [31:0] auto_ss_data_out,
+    output logic             auto_ss_ack
 
 );
+  assign auto_ss_ack = auto_ss_local_ack | auto_ss_u_cnt_ack | auto_ss_u_decoder_ack | auto_ss_u_interpol_ack | auto_ss_u_gain_ack;
+
+  assign auto_ss_data_out = auto_ss_local_data_out | auto_ss_u_cnt_data_out | auto_ss_u_decoder_data_out | auto_ss_u_interpol_data_out | auto_ss_u_gain_data_out;
+
+  logic        auto_ss_local_ack;
+
+  logic [31:0] auto_ss_local_data_out;
+
+  wire         auto_ss_u_gain_ack;
+
+  wire  [31:0] auto_ss_u_gain_data_out;
+
+  wire         auto_ss_u_interpol_ack;
+
+  wire  [31:0] auto_ss_u_interpol_data_out;
+
+  wire         auto_ss_u_decoder_ack;
+
+  wire  [31:0] auto_ss_u_decoder_data_out;
+
+  wire         auto_ss_u_cnt_ack;
+
+  wire  [31:0] auto_ss_u_cnt_data_out;
+
+  wire         device_match = (auto_ss_device_idx == auto_ss_base_device_idx);
+
   genvar auto_ss_idx;
 
 
@@ -6450,39 +7678,46 @@ module jt10_adpcm_drvB (
 
   always @(posedge clk) begin
     roe_n <= ~(adv & cen55);
-    if (auto_ss_wr) begin
-      integer auto_ss_idx;
-      roe_n <= auto_ss_in[4];
+    if (auto_ss_wr && device_match) begin
+      case (auto_ss_state_idx)
+        1: begin
+          roe_n <= auto_ss_data_in[4];
+        end
+        default: begin
+        end
+      endcase
     end
   end
 
 
-  assign auto_ss_out[4] = roe_n;
-
-
 
   jt10_adpcmb_cnt u_cnt (
-      .rst_n      (rst_n),
-      .clk        (clk),
-      .cen        (cen55),
-      .delta_n    (adeltan_b),
-      .acmd_up_b  (acmd_up_b),
-      .clr        (acmd_rst_b),
-      .on         (acmd_on_b),
-      .astart     (astart_b),
-      .aend       (aend_b),
-      .arepeat    (acmd_rep_b),
-      .addr       (addr),
-      .nibble_sel (nibble_sel),
+      .rst_n                  (rst_n),
+      .clk                    (clk),
+      .cen                    (cen55),
+      .delta_n                (adeltan_b),
+      .acmd_up_b              (acmd_up_b),
+      .clr                    (acmd_rst_b),
+      .on                     (acmd_on_b),
+      .astart                 (astart_b),
+      .aend                   (aend_b),
+      .arepeat                (acmd_rep_b),
+      .addr                   (addr),
+      .nibble_sel             (nibble_sel),
       // Flag control
-      .chon       (chon),
-      .clr_flag   (clr_flag),
-      .flag       (flag),
-      .clr_dec    (clr_dec),
-      .adv        (adv),
-      .auto_ss_in (auto_ss_in[37+:48]),
-      .auto_ss_out(auto_ss_out[37+:48]),
-      .auto_ss_wr (auto_ss_wr)
+      .chon                   (chon),
+      .clr_flag               (clr_flag),
+      .flag                   (flag),
+      .clr_dec                (clr_dec),
+      .adv                    (adv),
+      .auto_ss_rd             (auto_ss_rd),
+      .auto_ss_wr             (auto_ss_wr),
+      .auto_ss_data_in        (auto_ss_data_in),
+      .auto_ss_device_idx     (auto_ss_device_idx),
+      .auto_ss_state_idx      (auto_ss_state_idx),
+      .auto_ss_base_device_idx(auto_ss_base_device_idx + 1),
+      .auto_ss_data_out       (auto_ss_u_cnt_data_out),
+      .auto_ss_ack            (auto_ss_u_cnt_ack)
 
   );
 
@@ -6490,60 +7725,77 @@ module jt10_adpcm_drvB (
 
   always @(posedge clk) begin
     din <= !nibble_sel ? data[7:4] : data[3:0];
-    if (auto_ss_wr) begin
-      integer auto_ss_idx;
-      din <= auto_ss_in[0+:4];
+    if (auto_ss_wr && device_match) begin
+      case (auto_ss_state_idx)
+        1: begin
+          din <= auto_ss_data_in[3:0];
+        end
+        default: begin
+        end
+      endcase
     end
   end
-
-
-  assign auto_ss_out[0+:4] = din;
 
 
 
   wire signed [15:0] pcmdec, pcminter, pcmgain;
 
   jt10_adpcmb u_decoder (
-      .rst_n      (rst_n),
-      .clk        (clk),
-      .cen        (cen),
-      .adv        (adv & cen55),
-      .data       (din),
-      .chon       (chon),
-      .clr        (clr_dec),
-      .pcm        (pcmdec),
-      .auto_ss_in (auto_ss_in[85+:109]),
-      .auto_ss_out(auto_ss_out[85+:109]),
-      .auto_ss_wr (auto_ss_wr)
+      .rst_n                  (rst_n),
+      .clk                    (clk),
+      .cen                    (cen),
+      .adv                    (adv & cen55),
+      .data                   (din),
+      .chon                   (chon),
+      .clr                    (clr_dec),
+      .pcm                    (pcmdec),
+      .auto_ss_rd             (auto_ss_rd),
+      .auto_ss_wr             (auto_ss_wr),
+      .auto_ss_data_in        (auto_ss_data_in),
+      .auto_ss_device_idx     (auto_ss_device_idx),
+      .auto_ss_state_idx      (auto_ss_state_idx),
+      .auto_ss_base_device_idx(auto_ss_base_device_idx + 2),
+      .auto_ss_data_out       (auto_ss_u_decoder_data_out),
+      .auto_ss_ack            (auto_ss_u_decoder_ack)
 
   );
 
 
   jt10_adpcmb_interpol u_interpol (
-      .rst_n      (rst_n),
-      .clk        (clk),
-      .cen        (cen),
-      .cen55      (cen55 && chon),
-      .adv        (adv),
-      .pcmdec     (pcmdec),
-      .pcmout     (pcminter),
-      .auto_ss_in (auto_ss_in[194+:146]),
-      .auto_ss_out(auto_ss_out[194+:146]),
-      .auto_ss_wr (auto_ss_wr)
+      .rst_n                  (rst_n),
+      .clk                    (clk),
+      .cen                    (cen),
+      .cen55                  (cen55 && chon),
+      .adv                    (adv),
+      .pcmdec                 (pcmdec),
+      .pcmout                 (pcminter),
+      .auto_ss_rd             (auto_ss_rd),
+      .auto_ss_wr             (auto_ss_wr),
+      .auto_ss_data_in        (auto_ss_data_in),
+      .auto_ss_device_idx     (auto_ss_device_idx),
+      .auto_ss_state_idx      (auto_ss_state_idx),
+      .auto_ss_base_device_idx(auto_ss_base_device_idx + 3),
+      .auto_ss_data_out       (auto_ss_u_interpol_data_out),
+      .auto_ss_ack            (auto_ss_u_interpol_ack)
 
   );
 
 
   jt10_adpcmb_gain u_gain (
-      .rst_n      (rst_n),
-      .clk        (clk),
-      .cen55      (cen55),
-      .tl         (aeg_b),
-      .pcm_in     (pcminter),
-      .pcm_out    (pcmgain),
-      .auto_ss_in (auto_ss_in[340+:16]),
-      .auto_ss_out(auto_ss_out[340+:16]),
-      .auto_ss_wr (auto_ss_wr)
+      .rst_n                  (rst_n),
+      .clk                    (clk),
+      .cen55                  (cen55),
+      .tl                     (aeg_b),
+      .pcm_in                 (pcminter),
+      .pcm_out                (pcmgain),
+      .auto_ss_rd             (auto_ss_rd),
+      .auto_ss_wr             (auto_ss_wr),
+      .auto_ss_data_in        (auto_ss_data_in),
+      .auto_ss_device_idx     (auto_ss_device_idx),
+      .auto_ss_state_idx      (auto_ss_state_idx),
+      .auto_ss_base_device_idx(auto_ss_base_device_idx + 5),
+      .auto_ss_data_out       (auto_ss_u_gain_data_out),
+      .auto_ss_ack            (auto_ss_u_gain_ack)
 
   );
 
@@ -6552,16 +7804,37 @@ module jt10_adpcm_drvB (
       pcm55_l <= alr_b[1] ? pcmgain : 16'd0;
       pcm55_r <= alr_b[0] ? pcmgain : 16'd0;
     end
-    if (auto_ss_wr) begin
-      integer auto_ss_idx;
-      pcm55_l <= auto_ss_in[5+:16];
-      pcm55_r <= auto_ss_in[21+:16];
+    if (auto_ss_wr && device_match) begin
+      case (auto_ss_state_idx)
+        0: begin
+          pcm55_l <= auto_ss_data_in[15:0];
+          pcm55_r <= auto_ss_data_in[31:16];
+        end
+        default: begin
+        end
+      endcase
     end
   end
 
 
-  assign auto_ss_out[5+:16]  = pcm55_l;
-  assign auto_ss_out[21+:16] = pcm55_r;
+  always_comb begin
+    auto_ss_local_data_out = 32'h0;
+    auto_ss_local_ack      = 1'b0;
+    if (auto_ss_rd && device_match) begin
+      case (auto_ss_state_idx)
+        0: begin
+          auto_ss_local_data_out[31:0] = {pcm55_r, pcm55_l};
+          auto_ss_local_ack            = 1'b1;
+        end
+        1: begin
+          auto_ss_local_data_out[4:0] = {roe_n, din};
+          auto_ss_local_ack           = 1'b1;
+        end
+        default: begin
+        end
+      endcase
+    end
+  end
 
 
 
@@ -6574,17 +7847,24 @@ module jt12_single_acc #(
     parameter win  = 14,  // input data width 
               wout = 16   // output data width
 ) (
-    input                     clk,
-    input                     clk_en  /* synthesis direct_enable */,
-    input      [     win-1:0] op_result,
-    input                     sum_en,
-    input                     zero,
-    output reg [    wout-1:0] snd,
-    input      [2*wout - 1:0] auto_ss_in,
-    input                     auto_ss_wr,
-    output     [2*wout - 1:0] auto_ss_out
+    input                   clk,
+    input                   clk_en  /* synthesis direct_enable */,
+    input        [ win-1:0] op_result,
+    input                   sum_en,
+    input                   zero,
+    output reg   [wout-1:0] snd,
+    input                   auto_ss_rd,
+    input                   auto_ss_wr,
+    input        [    31:0] auto_ss_data_in,
+    input        [     7:0] auto_ss_device_idx,
+    input        [    15:0] auto_ss_state_idx,
+    input        [     7:0] auto_ss_base_device_idx,
+    output logic [    31:0] auto_ss_data_out,
+    output logic            auto_ss_ack
 
 );
+  wire device_match = (auto_ss_device_idx == auto_ss_base_device_idx);
+
   genvar auto_ss_idx;
 
 
@@ -6609,16 +7889,17 @@ module jt12_single_acc #(
       acc <= overflow ? (acc[wout-1] ? minus_inf : plus_inf) : next;
       if (zero) snd <= acc;
     end
-    if (auto_ss_wr) begin
-      integer auto_ss_idx;
-      acc <= auto_ss_in[0+:wout];
-      snd <= auto_ss_in[wout+:wout];
+    if (auto_ss_wr && device_match) begin
     end
   end
 
 
-  assign auto_ss_out[0+:wout]    = acc;
-  assign auto_ss_out[wout+:wout] = snd;
+  always_comb begin
+    auto_ss_data_out = 32'h0;
+    auto_ss_ack      = 1'b0;
+    if (auto_ss_rd && device_match) begin
+    end
+  end
 
 
 
@@ -6647,11 +7928,30 @@ module jt10_acc (
     // combined output
     output signed [15:0] left,
     output signed [15:0] right,
-    input         [63:0] auto_ss_in,
+    input                auto_ss_rd,
     input                auto_ss_wr,
-    output        [63:0] auto_ss_out
+    input         [31:0] auto_ss_data_in,
+    input         [ 7:0] auto_ss_device_idx,
+    input         [15:0] auto_ss_state_idx,
+    input         [ 7:0] auto_ss_base_device_idx,
+    output logic  [31:0] auto_ss_data_out,
+    output logic         auto_ss_ack
 
 );
+  assign auto_ss_ack      = auto_ss_u_left_ack | auto_ss_u_right_ack;
+
+  assign auto_ss_data_out = auto_ss_u_left_data_out | auto_ss_u_right_data_out;
+
+  wire        auto_ss_u_right_ack;
+
+  wire [31:0] auto_ss_u_right_data_out;
+
+  wire        auto_ss_u_left_ack;
+
+  wire [31:0] auto_ss_u_left_data_out;
+
+  wire        device_match = (auto_ss_device_idx == auto_ss_base_device_idx);
+
   genvar auto_ss_idx;
 
 
@@ -6719,15 +8019,20 @@ module jt10_acc (
       .win (16),
       .wout(16)
   ) u_left (
-      .clk        (clk),
-      .clk_en     (clk_en),
-      .op_result  (acc_input_l),
-      .sum_en     (acc_en_l),
-      .zero       (zero),
-      .snd        (left),
-      .auto_ss_in (auto_ss_in[0+:32]),
-      .auto_ss_out(auto_ss_out[0+:32]),
-      .auto_ss_wr (auto_ss_wr)
+      .clk                    (clk),
+      .clk_en                 (clk_en),
+      .op_result              (acc_input_l),
+      .sum_en                 (acc_en_l),
+      .zero                   (zero),
+      .snd                    (left),
+      .auto_ss_rd             (auto_ss_rd),
+      .auto_ss_wr             (auto_ss_wr),
+      .auto_ss_data_in        (auto_ss_data_in),
+      .auto_ss_device_idx     (auto_ss_device_idx),
+      .auto_ss_state_idx      (auto_ss_state_idx),
+      .auto_ss_base_device_idx(auto_ss_base_device_idx + 1),
+      .auto_ss_data_out       (auto_ss_u_left_data_out),
+      .auto_ss_ack            (auto_ss_u_left_ack)
 
   );
 
@@ -6735,15 +8040,20 @@ module jt10_acc (
       .win (16),
       .wout(16)
   ) u_right (
-      .clk        (clk),
-      .clk_en     (clk_en),
-      .op_result  (acc_input_r),
-      .sum_en     (acc_en_r),
-      .zero       (zero),
-      .snd        (right),
-      .auto_ss_in (auto_ss_in[32+:32]),
-      .auto_ss_out(auto_ss_out[32+:32]),
-      .auto_ss_wr (auto_ss_wr)
+      .clk                    (clk),
+      .clk_en                 (clk_en),
+      .op_result              (acc_input_r),
+      .sum_en                 (acc_en_r),
+      .zero                   (zero),
+      .snd                    (right),
+      .auto_ss_rd             (auto_ss_rd),
+      .auto_ss_wr             (auto_ss_wr),
+      .auto_ss_data_in        (auto_ss_data_in),
+      .auto_ss_device_idx     (auto_ss_device_idx),
+      .auto_ss_state_idx      (auto_ss_state_idx),
+      .auto_ss_base_device_idx(auto_ss_base_device_idx + 2),
+      .auto_ss_data_out       (auto_ss_u_right_data_out),
+      .auto_ss_ack            (auto_ss_u_right_ack)
 
   );
 
@@ -6755,19 +8065,26 @@ endmodule
 ///////////////////////////////////////////
 // MODULE jt12_lfo
 module jt12_lfo (
-    input             rst,
-    input             clk,
-    input             clk_en,
-    input             zero,
-    input             lfo_rst,
-    input             lfo_en,
-    input      [ 2:0] lfo_freq,
-    output reg [ 6:0] lfo_mod,
-    input      [13:0] auto_ss_in,
-    input             auto_ss_wr,
-    output     [13:0] auto_ss_out
+    input               rst,
+    input               clk,
+    input               clk_en,
+    input               zero,
+    input               lfo_rst,
+    input               lfo_en,
+    input        [ 2:0] lfo_freq,
+    output reg   [ 6:0] lfo_mod,
+    input               auto_ss_rd,
+    input               auto_ss_wr,
+    input        [31:0] auto_ss_data_in,
+    input        [ 7:0] auto_ss_device_idx,
+    input        [15:0] auto_ss_state_idx,
+    input        [ 7:0] auto_ss_base_device_idx,
+    output logic [31:0] auto_ss_data_out,
+    output logic        auto_ss_ack
     // 7-bit width according to spritesmind.net
 );
+  wire device_match = (auto_ss_device_idx == auto_ss_base_device_idx);
+
   genvar auto_ss_idx;
 
 
@@ -6796,16 +8113,33 @@ module jt12_lfo (
         cnt <= cnt + 1'b1;
       end
     end
-    if (auto_ss_wr) begin
-      integer auto_ss_idx;
-      cnt     <= auto_ss_in[0+:7];
-      lfo_mod <= auto_ss_in[7+:7];
+    if (auto_ss_wr && device_match) begin
+      case (auto_ss_state_idx)
+        0: begin
+          cnt     <= auto_ss_data_in[6:0];
+          lfo_mod <= auto_ss_data_in[13:7];
+        end
+        default: begin
+        end
+      endcase
     end
   end
 
 
-  assign auto_ss_out[0+:7] = cnt;
-  assign auto_ss_out[7+:7] = lfo_mod;
+  always_comb begin
+    auto_ss_data_out = 32'h0;
+    auto_ss_ack      = 1'b0;
+    if (auto_ss_rd && device_match) begin
+      case (auto_ss_state_idx)
+        0: begin
+          auto_ss_data_out[13:0] = {lfo_mod, cnt};
+          auto_ss_ack            = 1'b1;
+        end
+        default: begin
+        end
+      endcase
+    end
+  end
 
 
 
@@ -6815,17 +8149,24 @@ endmodule
 ///////////////////////////////////////////
 // MODULE jt49_cen
 module jt49_cen (
-    input             clk,
-    input             rst_n,
-    input             cen,         // base clock enable signal
-    input             sel,         // when low, divide by 2 once more
-    output reg        cen16,
-    output reg        cen256,
-    input      [11:0] auto_ss_in,
-    input             auto_ss_wr,
-    output     [11:0] auto_ss_out
+    input               clk,
+    input               rst_n,
+    input               cen,                      // base clock enable signal
+    input               sel,                      // when low, divide by 2 once more
+    output reg          cen16,
+    output reg          cen256,
+    input               auto_ss_rd,
+    input               auto_ss_wr,
+    input        [31:0] auto_ss_data_in,
+    input        [ 7:0] auto_ss_device_idx,
+    input        [15:0] auto_ss_state_idx,
+    input        [ 7:0] auto_ss_base_device_idx,
+    output logic [31:0] auto_ss_data_out,
+    output logic        auto_ss_ack
 
 );
+  wire device_match = (auto_ss_device_idx == auto_ss_base_device_idx);
+
   genvar auto_ss_idx;
 
 
@@ -6839,32 +8180,51 @@ module jt49_cen (
 
   always @(posedge clk, negedge rst_n) begin
     if (!rst_n) cencnt <= 10'd0;
-    else if (auto_ss_wr) begin
-      integer auto_ss_idx;
-      cencnt <= auto_ss_in[0+:10];
+    else if (auto_ss_wr && device_match) begin
+      case (auto_ss_state_idx)
+        0: begin
+          cencnt <= auto_ss_data_in[9:0];
+        end
+        default: begin
+        end
+      endcase
     end else begin
       if (cen) cencnt <= cencnt + 10'd1;
     end
   end
-  assign auto_ss_out[0+:10] = cencnt;
-
-
 
   always @(posedge clk) begin
     begin
       cen16  <= cen & toggle16;
       cen256 <= cen & toggle256;
     end
-    if (auto_ss_wr) begin
-      integer auto_ss_idx;
-      cen16  <= auto_ss_in[10];
-      cen256 <= auto_ss_in[11];
+    if (auto_ss_wr && device_match) begin
+      case (auto_ss_state_idx)
+        0: begin
+          cen16  <= auto_ss_data_in[10];
+          cen256 <= auto_ss_data_in[11];
+        end
+        default: begin
+        end
+      endcase
     end
   end
 
 
-  assign auto_ss_out[10] = cen16;
-  assign auto_ss_out[11] = cen256;
+  always_comb begin
+    auto_ss_data_out = 32'h0;
+    auto_ss_ack      = 1'b0;
+    if (auto_ss_rd && device_match) begin
+      case (auto_ss_state_idx)
+        0: begin
+          auto_ss_data_out[11:0] = {cen256, cen16, cencnt};
+          auto_ss_ack            = 1'b1;
+        end
+        default: begin
+        end
+      endcase
+    end
+  end
 
 
 
@@ -6882,11 +8242,18 @@ module jt49_div #(
     input rst_n,
     input [W-1:0] period,
     output reg div,
-    input [W:0] auto_ss_in,
+    input auto_ss_rd,
     input auto_ss_wr,
-    output [W:0] auto_ss_out
+    input [31:0] auto_ss_data_in,
+    input [7:0] auto_ss_device_idx,
+    input [15:0] auto_ss_state_idx,
+    input [7:0] auto_ss_base_device_idx,
+    output logic [31:0] auto_ss_data_out,
+    output logic auto_ss_ack
 
 );
+  wire device_match = (auto_ss_device_idx == auto_ss_base_device_idx);
+
   genvar auto_ss_idx;
 
 
@@ -6898,10 +8265,14 @@ module jt49_div #(
     if (!rst_n) begin
       count <= one;
       div   <= 1'b0;
-    end else if (auto_ss_wr) begin
-      integer auto_ss_idx;
-      count <= auto_ss_in[0+:W];
-      div   <= auto_ss_in[W];
+    end else if (auto_ss_wr && device_match) begin
+      case (auto_ss_state_idx)
+        0: begin
+          div <= auto_ss_data_in[0];
+        end
+        default: begin
+        end
+      endcase
     end else if (cen) begin
       if (count >= period) begin
         count <= one;
@@ -6912,8 +8283,20 @@ module jt49_div #(
       if (period == 0) div <= 0;
     end
   end
-  assign auto_ss_out[0+:W] = count;
-  assign auto_ss_out[W]    = div;
+  always_comb begin
+    auto_ss_data_out = 32'h0;
+    auto_ss_ack      = 1'b0;
+    if (auto_ss_rd && device_match) begin
+      case (auto_ss_state_idx)
+        0: begin
+          auto_ss_data_out[0] = div;
+          auto_ss_ack         = 1'b1;
+        end
+        default: begin
+        end
+      endcase
+    end
+  end
 
 
 
@@ -6923,16 +8306,35 @@ endmodule
 ///////////////////////////////////////////
 // MODULE jt49_noise
 module jt49_noise (
-    (* direct_enable *) input             cen,
-                        input             clk,
-                        input             rst_n,
-                        input      [ 4:0] period,
-                        output reg        noise,
-                        input      [24:0] auto_ss_in,
-                        input             auto_ss_wr,
-                        output     [24:0] auto_ss_out
+    (* direct_enable *) input               cen,
+                        input               clk,
+                        input               rst_n,
+                        input        [ 4:0] period,
+                        output reg          noise,
+                        input               auto_ss_rd,
+                        input               auto_ss_wr,
+                        input        [31:0] auto_ss_data_in,
+                        input        [ 7:0] auto_ss_device_idx,
+                        input        [15:0] auto_ss_state_idx,
+                        input        [ 7:0] auto_ss_base_device_idx,
+                        output logic [31:0] auto_ss_data_out,
+                        output logic        auto_ss_ack
 
 );
+  assign auto_ss_ack      = auto_ss_local_ack | auto_ss_u_div_ack;
+
+  assign auto_ss_data_out = auto_ss_local_data_out | auto_ss_u_div_data_out;
+
+  logic        auto_ss_local_ack;
+
+  logic [31:0] auto_ss_local_data_out;
+
+  wire         auto_ss_u_div_ack;
+
+  wire  [31:0] auto_ss_u_div_data_out;
+
+  wire         device_match = (auto_ss_device_idx == auto_ss_base_device_idx);
+
   genvar auto_ss_idx;
 
 
@@ -6948,41 +8350,65 @@ module jt49_noise (
     if (cen) begin
       noise <= ~poly17[0];
     end
-    if (auto_ss_wr) begin
-      integer auto_ss_idx;
-      noise <= auto_ss_in[18];
+    if (auto_ss_wr && device_match) begin
+      case (auto_ss_state_idx)
+        0: begin
+          noise <= auto_ss_data_in[17];
+        end
+        default: begin
+        end
+      endcase
     end
   end
-
-
-  assign auto_ss_out[18] = noise;
 
 
 
   always @(posedge clk, negedge rst_n)
     if (!rst_n) poly17 <= 17'd0;
-    else if (auto_ss_wr) begin
-      integer auto_ss_idx;
-      last_en <= auto_ss_in[17];
-      poly17  <= auto_ss_in[0+:17];
+    else if (auto_ss_wr && device_match) begin
+      case (auto_ss_state_idx)
+        0: begin
+          poly17  <= auto_ss_data_in[16:0];
+          last_en <= auto_ss_data_in[18];
+        end
+        default: begin
+        end
+      endcase
     end else if (cen) begin
       last_en <= noise_en;
       if (noise_up) poly17 <= {poly17[0] ^ poly17[3] ^ poly17_zero, poly17[16:1]};
     end
-  assign auto_ss_out[17]    = last_en;
-  assign auto_ss_out[0+:17] = poly17;
+  always_comb begin
+    auto_ss_local_data_out = 32'h0;
+    auto_ss_local_ack      = 1'b0;
+    if (auto_ss_rd && device_match) begin
+      case (auto_ss_state_idx)
+        0: begin
+          auto_ss_local_data_out[18:0] = {last_en, noise, poly17};
+          auto_ss_local_ack            = 1'b1;
+        end
+        default: begin
+        end
+      endcase
+    end
+  end
 
 
 
   jt49_div #(5) u_div (
-      .clk        (clk),
-      .cen        (cen),
-      .rst_n      (rst_n),
-      .period     (period),
-      .div        (noise_en),
-      .auto_ss_in (auto_ss_in[19+:6]),
-      .auto_ss_out(auto_ss_out[19+:6]),
-      .auto_ss_wr (auto_ss_wr)
+      .clk                    (clk),
+      .cen                    (cen),
+      .rst_n                  (rst_n),
+      .period                 (period),
+      .div                    (noise_en),
+      .auto_ss_rd             (auto_ss_rd),
+      .auto_ss_wr             (auto_ss_wr),
+      .auto_ss_data_in        (auto_ss_data_in),
+      .auto_ss_device_idx     (auto_ss_device_idx),
+      .auto_ss_state_idx      (auto_ss_state_idx),
+      .auto_ss_base_device_idx(auto_ss_base_device_idx + 1),
+      .auto_ss_data_out       (auto_ss_u_div_data_out),
+      .auto_ss_ack            (auto_ss_u_div_ack)
 
   );
 
@@ -7000,11 +8426,18 @@ module jt49_eg (
     input restart,
     input [3:0] ctrl,
     output reg [4:0] env,
-    input [14:0] auto_ss_in,
+    input auto_ss_rd,
     input auto_ss_wr,
-    output [14:0] auto_ss_out
+    input [31:0] auto_ss_data_in,
+    input [7:0] auto_ss_device_idx,
+    input [15:0] auto_ss_state_idx,
+    input [7:0] auto_ss_base_device_idx,
+    output logic [31:0] auto_ss_data_out,
+    output logic auto_ss_ack
 
 );
+  wire device_match = (auto_ss_device_idx == auto_ss_base_device_idx);
+
   genvar auto_ss_idx;
 
 
@@ -7021,14 +8454,16 @@ module jt49_eg (
   always @(posedge clk) begin
 
     if (cen) env <= inv ? ~gain : gain;
-    if (auto_ss_wr) begin
-      integer auto_ss_idx;
-      env <= auto_ss_in[10+:5];
+    if (auto_ss_wr && device_match) begin
+      case (auto_ss_state_idx)
+        0: begin
+          env <= auto_ss_data_in[4:0];
+        end
+        default: begin
+        end
+      endcase
     end
   end
-
-
-  assign auto_ss_out[10+:5] = env;
 
 
 
@@ -7042,14 +8477,16 @@ module jt49_eg (
       if (restart) rst_latch <= 1;
       else if (rst_clr) rst_latch <= 0;
     end
-    if (auto_ss_wr) begin
-      integer auto_ss_idx;
-      rst_latch <= auto_ss_in[8];
+    if (auto_ss_wr && device_match) begin
+      case (auto_ss_state_idx)
+        0: begin
+          rst_latch <= auto_ss_data_in[10];
+        end
+        default: begin
+        end
+      endcase
     end
   end
-
-
-  assign auto_ss_out[8] = rst_latch;
 
 
 
@@ -7059,13 +8496,18 @@ module jt49_eg (
       inv     <= 0;
       stop    <= 0;
       rst_clr <= 0;
-    end else if (auto_ss_wr) begin
-      integer auto_ss_idx;
-      gain      <= auto_ss_in[2+:5];
-      inv       <= auto_ss_in[0];
-      last_step <= auto_ss_in[7];
-      rst_clr   <= auto_ss_in[9];
-      stop      <= auto_ss_in[1];
+    end else if (auto_ss_wr && device_match) begin
+      case (auto_ss_state_idx)
+        0: begin
+          gain      <= auto_ss_data_in[9:5];
+          inv       <= auto_ss_data_in[11];
+          last_step <= auto_ss_data_in[12];
+          rst_clr   <= auto_ss_data_in[13];
+          stop      <= auto_ss_data_in[14];
+        end
+        default: begin
+        end
+      endcase
     end else if (cen) begin
       last_step <= step;
       if (rst_latch) begin
@@ -7084,11 +8526,20 @@ module jt49_eg (
         end
       end
     end
-  assign auto_ss_out[2+:5] = gain;
-  assign auto_ss_out[0]    = inv;
-  assign auto_ss_out[7]    = last_step;
-  assign auto_ss_out[9]    = rst_clr;
-  assign auto_ss_out[1]    = stop;
+  always_comb begin
+    auto_ss_data_out = 32'h0;
+    auto_ss_ack      = 1'b0;
+    if (auto_ss_rd && device_match) begin
+      case (auto_ss_state_idx)
+        0: begin
+          auto_ss_data_out[14:0] = {stop, rst_clr, last_step, inv, rst_latch, gain, env};
+          auto_ss_ack            = 1'b1;
+        end
+        default: begin
+        end
+      endcase
+    end
+  end
 
 
 
@@ -7098,15 +8549,22 @@ endmodule
 ///////////////////////////////////////////
 // MODULE jt49_exp
 module jt49_exp (
-    input            clk,
-    input      [2:0] comp,        // compression
-    input      [4:0] din,
-    output reg [7:0] dout,
-    input      [7:0] auto_ss_in,
-    input            auto_ss_wr,
-    output     [7:0] auto_ss_out
+    input               clk,
+    input        [ 2:0] comp,                     // compression
+    input        [ 4:0] din,
+    output reg   [ 7:0] dout,
+    input               auto_ss_rd,
+    input               auto_ss_wr,
+    input        [31:0] auto_ss_data_in,
+    input        [ 7:0] auto_ss_device_idx,
+    input        [15:0] auto_ss_state_idx,
+    input        [ 7:0] auto_ss_base_device_idx,
+    output logic [31:0] auto_ss_data_out,
+    output logic        auto_ss_ack
 
 );
+  wire device_match = (auto_ss_device_idx == auto_ss_base_device_idx);
+
   genvar auto_ss_idx;
 
 
@@ -7115,14 +8573,32 @@ module jt49_exp (
   always @(posedge clk) begin
 
     dout <= lut[{comp, din}];
-    if (auto_ss_wr) begin
-      integer auto_ss_idx;
-      dout <= auto_ss_in[0+:8];
+    if (auto_ss_wr && device_match) begin
+      case (auto_ss_state_idx)
+        0: begin
+          dout <= auto_ss_data_in[7:0];
+        end
+        default: begin
+        end
+      endcase
     end
   end
 
 
-  assign auto_ss_out[0+:8] = dout;
+  always_comb begin
+    auto_ss_data_out = 32'h0;
+    auto_ss_ack      = 1'b0;
+    if (auto_ss_rd && device_match) begin
+      case (auto_ss_state_idx)
+        0: begin
+          auto_ss_data_out[8-1:0] = dout;
+          auto_ss_ack             = 1'b1;
+        end
+        default: begin
+        end
+      endcase
+    end
+  end
 
 
 
@@ -7314,14 +8790,61 @@ module jt49 (  // note that input ports are not multiplexed
     output [7:0] IOA_out,
     output       IOA_oe,
 
-    input  [  7:0] IOB_in,
-    output [  7:0] IOB_out,
-    output         IOB_oe,
-    input  [324:0] auto_ss_in,
-    input          auto_ss_wr,
-    output [324:0] auto_ss_out
+    input        [ 7:0] IOB_in,
+    output       [ 7:0] IOB_out,
+    output              IOB_oe,
+    input               auto_ss_rd,
+    input               auto_ss_wr,
+    input        [31:0] auto_ss_data_in,
+    input        [ 7:0] auto_ss_device_idx,
+    input        [15:0] auto_ss_state_idx,
+    input        [ 7:0] auto_ss_base_device_idx,
+    output logic [31:0] auto_ss_data_out,
+    output logic        auto_ss_ack
 
 );
+  assign auto_ss_ack = auto_ss_local_ack | auto_ss_u_cen_ack | auto_ss_u_chA_ack | auto_ss_u_chB_ack | auto_ss_u_chC_ack | auto_ss_u_ng_ack | auto_ss_u_envdiv_ack | auto_ss_u_env_ack | auto_ss_u_exp_ack;
+
+  assign auto_ss_data_out = auto_ss_local_data_out | auto_ss_u_cen_data_out | auto_ss_u_chA_data_out | auto_ss_u_chB_data_out | auto_ss_u_chC_data_out | auto_ss_u_ng_data_out | auto_ss_u_envdiv_data_out | auto_ss_u_env_data_out | auto_ss_u_exp_data_out;
+
+  logic        auto_ss_local_ack;
+
+  logic [31:0] auto_ss_local_data_out;
+
+  wire         auto_ss_u_exp_ack;
+
+  wire  [31:0] auto_ss_u_exp_data_out;
+
+  wire         auto_ss_u_env_ack;
+
+  wire  [31:0] auto_ss_u_env_data_out;
+
+  wire         auto_ss_u_envdiv_ack;
+
+  wire  [31:0] auto_ss_u_envdiv_data_out;
+
+  wire         auto_ss_u_ng_ack;
+
+  wire  [31:0] auto_ss_u_ng_data_out;
+
+  wire         auto_ss_u_chC_ack;
+
+  wire  [31:0] auto_ss_u_chC_data_out;
+
+  wire         auto_ss_u_chB_ack;
+
+  wire  [31:0] auto_ss_u_chB_data_out;
+
+  wire         auto_ss_u_chA_ack;
+
+  wire  [31:0] auto_ss_u_chA_data_out;
+
+  wire         auto_ss_u_cen_ack;
+
+  wire  [31:0] auto_ss_u_cen_data_out;
+
+  wire         device_match = (auto_ss_device_idx == auto_ss_base_device_idx);
+
   genvar auto_ss_idx;
 
 
@@ -7356,64 +8879,89 @@ module jt49 (  // note that input ports are not multiplexed
   jt49_cen #(
       .CLKDIV(CLKDIV)
   ) u_cen (
-      .clk        (clk),
-      .rst_n      (rst_n),
-      .cen        (clk_en),
-      .sel        (sel),
-      .cen16      (cen16),
-      .cen256     (cen256),
-      .auto_ss_in (auto_ss_in[209+:12]),
-      .auto_ss_out(auto_ss_out[209+:12]),
-      .auto_ss_wr (auto_ss_wr)
+      .clk                    (clk),
+      .rst_n                  (rst_n),
+      .cen                    (clk_en),
+      .sel                    (sel),
+      .cen16                  (cen16),
+      .cen256                 (cen256),
+      .auto_ss_rd             (auto_ss_rd),
+      .auto_ss_wr             (auto_ss_wr),
+      .auto_ss_data_in        (auto_ss_data_in),
+      .auto_ss_device_idx     (auto_ss_device_idx),
+      .auto_ss_state_idx      (auto_ss_state_idx),
+      .auto_ss_base_device_idx(auto_ss_base_device_idx + 1),
+      .auto_ss_data_out       (auto_ss_u_cen_data_out),
+      .auto_ss_ack            (auto_ss_u_cen_ack)
 
   );
 
   // internal modules operate at clk/16
   jt49_div #(12) u_chA (
-      .clk        (clk),
-      .rst_n      (rst_n),
-      .cen        (cen16),
-      .period     (periodA),
-      .div        (bitA),
-      .auto_ss_in (auto_ss_in[221+:13]),
-      .auto_ss_out(auto_ss_out[221+:13]),
-      .auto_ss_wr (auto_ss_wr)
+      .clk                    (clk),
+      .rst_n                  (rst_n),
+      .cen                    (cen16),
+      .period                 (periodA),
+      .div                    (bitA),
+      .auto_ss_rd             (auto_ss_rd),
+      .auto_ss_wr             (auto_ss_wr),
+      .auto_ss_data_in        (auto_ss_data_in),
+      .auto_ss_device_idx     (auto_ss_device_idx),
+      .auto_ss_state_idx      (auto_ss_state_idx),
+      .auto_ss_base_device_idx(auto_ss_base_device_idx + 2),
+      .auto_ss_data_out       (auto_ss_u_chA_data_out),
+      .auto_ss_ack            (auto_ss_u_chA_ack)
 
   );
 
   jt49_div #(12) u_chB (
-      .clk        (clk),
-      .rst_n      (rst_n),
-      .cen        (cen16),
-      .period     (periodB),
-      .div        (bitB),
-      .auto_ss_in (auto_ss_in[234+:13]),
-      .auto_ss_out(auto_ss_out[234+:13]),
-      .auto_ss_wr (auto_ss_wr)
+      .clk                    (clk),
+      .rst_n                  (rst_n),
+      .cen                    (cen16),
+      .period                 (periodB),
+      .div                    (bitB),
+      .auto_ss_rd             (auto_ss_rd),
+      .auto_ss_wr             (auto_ss_wr),
+      .auto_ss_data_in        (auto_ss_data_in),
+      .auto_ss_device_idx     (auto_ss_device_idx),
+      .auto_ss_state_idx      (auto_ss_state_idx),
+      .auto_ss_base_device_idx(auto_ss_base_device_idx + 3),
+      .auto_ss_data_out       (auto_ss_u_chB_data_out),
+      .auto_ss_ack            (auto_ss_u_chB_ack)
 
   );
 
   jt49_div #(12) u_chC (
-      .clk        (clk),
-      .rst_n      (rst_n),
-      .cen        (cen16),
-      .period     (periodC),
-      .div        (bitC),
-      .auto_ss_in (auto_ss_in[247+:13]),
-      .auto_ss_out(auto_ss_out[247+:13]),
-      .auto_ss_wr (auto_ss_wr)
+      .clk                    (clk),
+      .rst_n                  (rst_n),
+      .cen                    (cen16),
+      .period                 (periodC),
+      .div                    (bitC),
+      .auto_ss_rd             (auto_ss_rd),
+      .auto_ss_wr             (auto_ss_wr),
+      .auto_ss_data_in        (auto_ss_data_in),
+      .auto_ss_device_idx     (auto_ss_device_idx),
+      .auto_ss_state_idx      (auto_ss_state_idx),
+      .auto_ss_base_device_idx(auto_ss_base_device_idx + 4),
+      .auto_ss_data_out       (auto_ss_u_chC_data_out),
+      .auto_ss_ack            (auto_ss_u_chC_ack)
 
   );
 
   jt49_noise u_ng (
-      .clk        (clk),
-      .cen        (cen16),
-      .rst_n      (rst_n),
-      .period     (regarray[6][4:0]),
-      .noise      (noise),
-      .auto_ss_in (auto_ss_in[260+:25]),
-      .auto_ss_out(auto_ss_out[260+:25]),
-      .auto_ss_wr (auto_ss_wr)
+      .clk                    (clk),
+      .cen                    (cen16),
+      .rst_n                  (rst_n),
+      .period                 (regarray[6][4:0]),
+      .noise                  (noise),
+      .auto_ss_rd             (auto_ss_rd),
+      .auto_ss_wr             (auto_ss_wr),
+      .auto_ss_data_in        (auto_ss_data_in),
+      .auto_ss_device_idx     (auto_ss_device_idx),
+      .auto_ss_state_idx      (auto_ss_state_idx),
+      .auto_ss_base_device_idx(auto_ss_base_device_idx + 5),
+      .auto_ss_data_out       (auto_ss_u_ng_data_out),
+      .auto_ss_ack            (auto_ss_u_ng_ack)
 
   );
 
@@ -7423,31 +8971,41 @@ module jt49 (  // note that input ports are not multiplexed
   wire        null_period = eg_period == 16'h0;
 
   jt49_div #(16) u_envdiv (
-      .clk        (clk),
-      .cen        (cen256),
-      .rst_n      (rst_n),
-      .period     (eg_period),
-      .div        (eg_step),
-      .auto_ss_in (auto_ss_in[285+:17]),
-      .auto_ss_out(auto_ss_out[285+:17]),
-      .auto_ss_wr (auto_ss_wr)
+      .clk                    (clk),
+      .cen                    (cen256),
+      .rst_n                  (rst_n),
+      .period                 (eg_period),
+      .div                    (eg_step),
+      .auto_ss_rd             (auto_ss_rd),
+      .auto_ss_wr             (auto_ss_wr),
+      .auto_ss_data_in        (auto_ss_data_in),
+      .auto_ss_device_idx     (auto_ss_device_idx),
+      .auto_ss_state_idx      (auto_ss_state_idx),
+      .auto_ss_base_device_idx(auto_ss_base_device_idx + 7),
+      .auto_ss_data_out       (auto_ss_u_envdiv_data_out),
+      .auto_ss_ack            (auto_ss_u_envdiv_ack)
 
   );
 
   reg eg_restart;
 
   jt49_eg u_env (
-      .clk        (clk),
-      .cen        (cen256),
-      .step       (eg_step),
-      .rst_n      (rst_n),
-      .restart    (eg_restart),
-      .null_period(null_period),
-      .ctrl       (regarray[4'hD][3:0]),
-      .env        (envelope),
-      .auto_ss_in (auto_ss_in[302+:15]),
-      .auto_ss_out(auto_ss_out[302+:15]),
-      .auto_ss_wr (auto_ss_wr)
+      .clk                    (clk),
+      .cen                    (cen256),
+      .step                   (eg_step),
+      .rst_n                  (rst_n),
+      .restart                (eg_restart),
+      .null_period            (null_period),
+      .ctrl                   (regarray[4'hD][3:0]),
+      .env                    (envelope),
+      .auto_ss_rd             (auto_ss_rd),
+      .auto_ss_wr             (auto_ss_wr),
+      .auto_ss_data_in        (auto_ss_data_in),
+      .auto_ss_device_idx     (auto_ss_device_idx),
+      .auto_ss_state_idx      (auto_ss_state_idx),
+      .auto_ss_base_device_idx(auto_ss_base_device_idx + 8),
+      .auto_ss_data_out       (auto_ss_u_env_data_out),
+      .auto_ss_ack            (auto_ss_u_env_ack)
 
   );
 
@@ -7455,13 +9013,18 @@ module jt49 (  // note that input ports are not multiplexed
   wire [7:0] lin;
 
   jt49_exp u_exp (
-      .clk        (clk),
-      .comp       (comp),
-      .din        (log),
-      .dout       (lin),
-      .auto_ss_in (auto_ss_in[317+:8]),
-      .auto_ss_out(auto_ss_out[317+:8]),
-      .auto_ss_wr (auto_ss_wr)
+      .clk                    (clk),
+      .comp                   (comp),
+      .din                    (log),
+      .dout                   (lin),
+      .auto_ss_rd             (auto_ss_rd),
+      .auto_ss_wr             (auto_ss_wr),
+      .auto_ss_data_in        (auto_ss_data_in),
+      .auto_ss_device_idx     (auto_ss_device_idx),
+      .auto_ss_state_idx      (auto_ss_state_idx),
+      .auto_ss_base_device_idx(auto_ss_base_device_idx + 9),
+      .auto_ss_data_out       (auto_ss_u_exp_data_out),
+      .auto_ss_ack            (auto_ss_u_exp_ack)
 
   );
 
@@ -7487,24 +9050,23 @@ module jt49 (  // note that input ports are not multiplexed
       logB <= !Bmix ? 5'd0 : (use_envB ? envelope : volB);
       logC <= !Cmix ? 5'd0 : (use_envC ? envelope : volC);
     end
-    if (auto_ss_wr) begin
-      integer auto_ss_idx;
-      Amix <= auto_ss_in[128];
-      Bmix <= auto_ss_in[129];
-      Cmix <= auto_ss_in[130];
-      logA <= auto_ss_in[132+:5];
-      logB <= auto_ss_in[137+:5];
-      logC <= auto_ss_in[142+:5];
+    if (auto_ss_wr && device_match) begin
+      case (auto_ss_state_idx)
+        1: begin
+          logA <= auto_ss_data_in[28:24];
+        end
+        2: begin
+          logB <= auto_ss_data_in[4:0];
+          logC <= auto_ss_data_in[9:5];
+          Amix <= auto_ss_data_in[19];
+          Bmix <= auto_ss_data_in[20];
+          Cmix <= auto_ss_data_in[21];
+        end
+        default: begin
+        end
+      endcase
     end
   end
-
-
-  assign auto_ss_out[128]    = Amix;
-  assign auto_ss_out[129]    = Bmix;
-  assign auto_ss_out[130]    = Cmix;
-  assign auto_ss_out[132+:5] = logA;
-  assign auto_ss_out[137+:5] = logB;
-  assign auto_ss_out[142+:5] = logC;
 
 
 
@@ -7521,15 +9083,24 @@ module jt49 (  // note that input ports are not multiplexed
       B      <= 8'd0;
       C      <= 8'd0;
       sound  <= 10'd0;
-    end else if (auto_ss_wr) begin
-      integer auto_ss_idx;
-      A      <= auto_ss_in[185+:8];
-      B      <= auto_ss_in[193+:8];
-      C      <= auto_ss_in[201+:8];
-      acc    <= auto_ss_in[156+:10];
-      acc_st <= auto_ss_in[152+:4];
-      log    <= auto_ss_in[147+:5];
-      sound  <= auto_ss_in[175+:10];
+    end else if (auto_ss_wr && device_match) begin
+      case (auto_ss_state_idx)
+        0: begin
+          acc   <= auto_ss_data_in[9:0];
+          sound <= auto_ss_data_in[19:10];
+          A     <= auto_ss_data_in[27:20];
+        end
+        1: begin
+          B <= auto_ss_data_in[7:0];
+          C <= auto_ss_data_in[15:8];
+        end
+        2: begin
+          log    <= auto_ss_data_in[14:10];
+          acc_st <= auto_ss_data_in[18:15];
+        end
+        default: begin
+        end
+      endcase
     end else if (clk_en) begin
       acc_st <= {acc_st[2:0], acc_st[3]};
       // Lumping the channel outputs for YM2203 will cause only the higher
@@ -7556,15 +9127,6 @@ module jt49 (  // note that input ports are not multiplexed
       endcase
     end
   end
-  assign auto_ss_out[185+:8]  = A;
-  assign auto_ss_out[193+:8]  = B;
-  assign auto_ss_out[201+:8]  = C;
-  assign auto_ss_out[156+:10] = acc;
-  assign auto_ss_out[152+:4]  = acc_st;
-  assign auto_ss_out[147+:5]  = log;
-  assign auto_ss_out[175+:10] = sound;
-
-
 
   reg [7:0] read_mask;
 
@@ -7603,14 +9165,21 @@ module jt49 (  // note that input ports are not multiplexed
       regarray[7]  <= 8'd0;
       regarray[11] <= 8'd0;
       regarray[15] <= 8'd0;
-    end else if (auto_ss_wr) begin
-      integer auto_ss_idx;
-      dout       <= auto_ss_in[167+:8];
-      eg_restart <= auto_ss_in[131];
-      last_write <= auto_ss_in[166];
-      for (auto_ss_idx = 0; auto_ss_idx < (16); auto_ss_idx = auto_ss_idx + 1) begin
-        regarray[auto_ss_idx] <= auto_ss_in[8*auto_ss_idx+:8];
-      end
+    end else if (auto_ss_wr && device_match) begin
+      case (auto_ss_state_idx)
+        1: begin
+          dout <= auto_ss_data_in[23:16];
+        end
+        2: begin
+          eg_restart <= auto_ss_data_in[22];
+          last_write <= auto_ss_data_in[23];
+        end
+        default: begin
+          if (auto_ss_state_idx >= (3) && auto_ss_state_idx < (19)) begin
+            regarray[auto_ss_state_idx-3] <= auto_ss_data_in[7:0];
+          end
+        end
+      endcase
     end else begin
       last_write <= write;
       // Data read
@@ -7628,17 +9197,34 @@ module jt49 (  // note that input ports are not multiplexed
       end
     end
   end
-  generate
-    assign auto_ss_out[167+:8] = dout;
-    assign auto_ss_out[131]    = eg_restart;
-    assign auto_ss_out[166]    = last_write;
-    for (
-        auto_ss_idx = 0; auto_ss_idx < (16); auto_ss_idx = auto_ss_idx + 1
-    ) begin : blk_asg_regarray
-      assign auto_ss_out[8*auto_ss_idx+:8] = regarray[auto_ss_idx];
+  always_comb begin
+    auto_ss_local_data_out = 32'h0;
+    auto_ss_local_ack      = 1'b0;
+    if (auto_ss_rd && device_match) begin
+      case (auto_ss_state_idx)
+        0: begin
+          auto_ss_local_data_out[27:0] = {A, sound, acc};
+          auto_ss_local_ack            = 1'b1;
+        end
+        1: begin
+          auto_ss_local_data_out[28:0] = {logA, dout, C, B};
+          auto_ss_local_ack            = 1'b1;
+        end
+        2: begin
+          auto_ss_local_data_out[23:0] = {
+            last_write, eg_restart, Cmix, Bmix, Amix, acc_st, log, logC, logB
+          };
+          auto_ss_local_ack = 1'b1;
+        end
+        default: begin
+          if (auto_ss_state_idx >= (3) && auto_ss_state_idx < (19)) begin
+            auto_ss_local_data_out[8-1:0] = regarray[auto_ss_state_idx-3];
+            auto_ss_local_ack             = 1'b1;
+          end
+        end
+      endcase
     end
-
-  endgenerate
+  end
 
 
 
@@ -7651,18 +9237,37 @@ module jt12_pcm_interpol #(
     parameter DW    = 9,
               stepw = 5
 ) (
-    input                                    rst_n,
-    input                                    clk,
-    input                                    cen,         // 8MHz cen
-    input                                    cen55,       // clk & cen55  =  55 kHz
-    input                                    pcm_wr,      // advance to next sample
-    input  signed     [              DW-1:0] pcmin,
-    output reg signed [              DW-1:0] pcmout,
-    input             [8*DW + 2*stepw + 2:0] auto_ss_in,
-    input                                    auto_ss_wr,
-    output            [8*DW + 2*stepw + 2:0] auto_ss_out
+    input                      rst_n,
+    input                      clk,
+    input                      cen,                      // 8MHz cen
+    input                      cen55,                    // clk & cen55  =  55 kHz
+    input                      pcm_wr,                   // advance to next sample
+    input  signed     [DW-1:0] pcmin,
+    output reg signed [DW-1:0] pcmout,
+    input                      auto_ss_rd,
+    input                      auto_ss_wr,
+    input             [  31:0] auto_ss_data_in,
+    input             [   7:0] auto_ss_device_idx,
+    input             [  15:0] auto_ss_state_idx,
+    input             [   7:0] auto_ss_base_device_idx,
+    output logic      [  31:0] auto_ss_data_out,
+    output logic               auto_ss_ack
 
 );
+  assign auto_ss_ack      = auto_ss_local_ack | auto_ss_u_div_ack;
+
+  assign auto_ss_data_out = auto_ss_local_data_out | auto_ss_u_div_data_out;
+
+  logic        auto_ss_local_ack;
+
+  logic [31:0] auto_ss_local_data_out;
+
+  wire         auto_ss_u_div_ack;
+
+  wire  [31:0] auto_ss_u_div_data_out;
+
+  wire         device_match = (auto_ss_device_idx == auto_ss_base_device_idx);
+
   genvar auto_ss_idx;
 
 
@@ -7697,28 +9302,18 @@ module jt12_pcm_interpol #(
         if (pre_dn != {stepw{1'b1}}) pre_dn <= pre_dn + 'd1;
       end
     end
-    if (auto_ss_wr) begin
-      integer auto_ss_idx;
-      dn          <= auto_ss_in[2+:stepw];
-      dx          <= auto_ss_in[DW+2*stepw+3+:DW];
-      last_pcm_wr <= auto_ss_in[1];
-      pcmlast     <= auto_ss_in[2*DW+2*stepw+3+:DW];
-      pcmnew      <= auto_ss_in[2*stepw+3+:DW];
-      pre_dn      <= auto_ss_in[stepw+2+:stepw];
-      sign        <= auto_ss_in[0];
-      start_div   <= auto_ss_in[2*stepw+2];
+    if (auto_ss_wr && device_match) begin
+      case (auto_ss_state_idx)
+        0: begin
+          last_pcm_wr <= auto_ss_data_in[0];
+          sign        <= auto_ss_data_in[1];
+          start_div   <= auto_ss_data_in[2];
+        end
+        default: begin
+        end
+      endcase
     end
   end
-
-
-  assign auto_ss_out[2+:stepw]           = dn;
-  assign auto_ss_out[DW+2*stepw+3+:DW]   = dx;
-  assign auto_ss_out[1]                  = last_pcm_wr;
-  assign auto_ss_out[2*DW+2*stepw+3+:DW] = pcmlast;
-  assign auto_ss_out[2*stepw+3+:DW]      = pcmnew;
-  assign auto_ss_out[stepw+2+:stepw]     = pre_dn;
-  assign auto_ss_out[0]                  = sign;
-  assign auto_ss_out[2*stepw+2]          = start_div;
 
 
 
@@ -7744,14 +9339,9 @@ module jt12_pcm_interpol #(
         end
       end
     end
-    if (auto_ss_wr) begin
-      integer auto_ss_idx;
-      pcminter <= auto_ss_in[3*DW+2*stepw+3+:DW];
+    if (auto_ss_wr && device_match) begin
     end
   end
-
-
-  assign auto_ss_out[3*DW+2*stepw+3+:DW] = pcminter;
 
 
 
@@ -7759,32 +9349,48 @@ module jt12_pcm_interpol #(
 
   always @(posedge clk) begin
     if (cen55) pcmout <= pcminter;
-    if (auto_ss_wr) begin
-      integer auto_ss_idx;
-      pcmout <= auto_ss_in[4*DW+2*stepw+3+:DW];
+    if (auto_ss_wr && device_match) begin
     end
   end
 
 
-  assign auto_ss_out[4*DW+2*stepw+3+:DW] = pcmout;
+  always_comb begin
+    auto_ss_local_data_out = 32'h0;
+    auto_ss_local_ack      = 1'b0;
+    if (auto_ss_rd && device_match) begin
+      case (auto_ss_state_idx)
+        0: begin
+          auto_ss_local_data_out[2:0] = {start_div, sign, last_pcm_wr};
+          auto_ss_local_ack           = 1'b1;
+        end
+        default: begin
+        end
+      endcase
+    end
+  end
 
 
 
   jt10_adpcm_div #(
       .DW(DW)
   ) u_div (
-      .rst_n      (rst_n),
-      .clk        (clk),
-      .cen        (1'b1),
-      .start      (start_div),
-      .a          (dx),
-      .b          ({{DW - stepw{1'b0}}, dn}),
-      .d          (step),
-      .r          (),
-      .working    (working),
-      .auto_ss_in (auto_ss_in[5*DW+2*stepw+3+:3*DW]),
-      .auto_ss_out(auto_ss_out[5*DW+2*stepw+3+:3*DW]),
-      .auto_ss_wr (auto_ss_wr)
+      .rst_n                  (rst_n),
+      .clk                    (clk),
+      .cen                    (1'b1),
+      .start                  (start_div),
+      .a                      (dx),
+      .b                      ({{DW - stepw{1'b0}}, dn}),
+      .d                      (step),
+      .r                      (),
+      .working                (working),
+      .auto_ss_rd             (auto_ss_rd),
+      .auto_ss_wr             (auto_ss_wr),
+      .auto_ss_data_in        (auto_ss_data_in),
+      .auto_ss_device_idx     (auto_ss_device_idx),
+      .auto_ss_state_idx      (auto_ss_state_idx),
+      .auto_ss_base_device_idx(auto_ss_base_device_idx + 1),
+      .auto_ss_data_out       (auto_ss_u_div_data_out),
+      .auto_ss_ack            (auto_ss_u_div_ack)
 
   );
 
@@ -7812,11 +9418,34 @@ module jt12_acc (
     // combined output
     output reg signed [11:0] left,
     output reg signed [11:0] right,
-    input             [72:0] auto_ss_in,
+    input                    auto_ss_rd,
     input                    auto_ss_wr,
-    output            [72:0] auto_ss_out
+    input             [31:0] auto_ss_data_in,
+    input             [ 7:0] auto_ss_device_idx,
+    input             [15:0] auto_ss_state_idx,
+    input             [ 7:0] auto_ss_base_device_idx,
+    output logic      [31:0] auto_ss_data_out,
+    output logic             auto_ss_ack
 
 );
+  assign auto_ss_ack = auto_ss_local_ack | auto_ss_u_left_ack | auto_ss_u_right_ack;
+
+  assign auto_ss_data_out = auto_ss_local_data_out | auto_ss_u_left_data_out | auto_ss_u_right_data_out;
+
+  logic        auto_ss_local_ack;
+
+  logic [31:0] auto_ss_local_data_out;
+
+  wire         auto_ss_u_right_ack;
+
+  wire  [31:0] auto_ss_u_right_data_out;
+
+  wire         auto_ss_u_left_ack;
+
+  wire  [31:0] auto_ss_u_left_data_out;
+
+  wire         device_match = (auto_ss_device_idx == auto_ss_base_device_idx);
+
   genvar auto_ss_idx;
 
 
@@ -7837,14 +9466,16 @@ module jt12_acc (
     if (clk_en)
       if (zero) pcm_sum <= 1'b1;
       else if (ch6op) pcm_sum <= 1'b0;
-    if (auto_ss_wr) begin
-      integer auto_ss_idx;
-      pcm_sum <= auto_ss_in[0];
+    if (auto_ss_wr && device_match) begin
+      case (auto_ss_state_idx)
+        0: begin
+          pcm_sum <= auto_ss_data_in[24];
+        end
+        default: begin
+        end
+      endcase
     end
   end
-
-
-  assign auto_ss_out[0] = pcm_sum;
 
 
 
@@ -7861,15 +9492,20 @@ module jt12_acc (
       .win (9),
       .wout(12)
   ) u_left (
-      .clk        (clk),
-      .clk_en     (clk_en),
-      .op_result  (acc_input),
-      .sum_en     (sum_or_pcm & left_en),
-      .zero       (zero),
-      .snd        (pre_left),
-      .auto_ss_in (auto_ss_in[25+:24]),
-      .auto_ss_out(auto_ss_out[25+:24]),
-      .auto_ss_wr (auto_ss_wr)
+      .clk                    (clk),
+      .clk_en                 (clk_en),
+      .op_result              (acc_input),
+      .sum_en                 (sum_or_pcm & left_en),
+      .zero                   (zero),
+      .snd                    (pre_left),
+      .auto_ss_rd             (auto_ss_rd),
+      .auto_ss_wr             (auto_ss_wr),
+      .auto_ss_data_in        (auto_ss_data_in),
+      .auto_ss_device_idx     (auto_ss_device_idx),
+      .auto_ss_state_idx      (auto_ss_state_idx),
+      .auto_ss_base_device_idx(auto_ss_base_device_idx + 1),
+      .auto_ss_data_out       (auto_ss_u_left_data_out),
+      .auto_ss_ack            (auto_ss_u_left_ack)
 
   );
 
@@ -7877,15 +9513,20 @@ module jt12_acc (
       .win (9),
       .wout(12)
   ) u_right (
-      .clk        (clk),
-      .clk_en     (clk_en),
-      .op_result  (acc_input),
-      .sum_en     (sum_or_pcm & right_en),
-      .zero       (zero),
-      .snd        (pre_right),
-      .auto_ss_in (auto_ss_in[49+:24]),
-      .auto_ss_out(auto_ss_out[49+:24]),
-      .auto_ss_wr (auto_ss_wr)
+      .clk                    (clk),
+      .clk_en                 (clk_en),
+      .op_result              (acc_input),
+      .sum_en                 (sum_or_pcm & right_en),
+      .zero                   (zero),
+      .snd                    (pre_right),
+      .auto_ss_rd             (auto_ss_rd),
+      .auto_ss_wr             (auto_ss_wr),
+      .auto_ss_data_in        (auto_ss_data_in),
+      .auto_ss_device_idx     (auto_ss_device_idx),
+      .auto_ss_state_idx      (auto_ss_state_idx),
+      .auto_ss_base_device_idx(auto_ss_base_device_idx + 2),
+      .auto_ss_data_out       (auto_ss_u_right_data_out),
+      .auto_ss_ack            (auto_ss_u_right_ack)
 
   );
 
@@ -7896,16 +9537,33 @@ module jt12_acc (
       left  <= pre_left + {{2{pre_left[11]}}, pre_left[11:2]};
       right <= pre_right + {{2{pre_right[11]}}, pre_right[11:2]};
     end
-    if (auto_ss_wr) begin
-      integer auto_ss_idx;
-      left  <= auto_ss_in[1+:12];
-      right <= auto_ss_in[13+:12];
+    if (auto_ss_wr && device_match) begin
+      case (auto_ss_state_idx)
+        0: begin
+          left  <= auto_ss_data_in[11:0];
+          right <= auto_ss_data_in[23:12];
+        end
+        default: begin
+        end
+      endcase
     end
   end
 
 
-  assign auto_ss_out[1+:12]  = left;
-  assign auto_ss_out[13+:12] = right;
+  always_comb begin
+    auto_ss_local_data_out = 32'h0;
+    auto_ss_local_ack      = 1'b0;
+    if (auto_ss_rd && device_match) begin
+      case (auto_ss_state_idx)
+        0: begin
+          auto_ss_local_data_out[24:0] = {pcm_sum, right, left};
+          auto_ss_local_ack            = 1'b1;
+        end
+        default: begin
+        end
+      endcase
+    end
+  end
 
 
 
@@ -7927,11 +9585,26 @@ module jt03_acc (
     input         [ 2:0] alg,
     // combined output
     output signed [15:0] snd,
-    input         [31:0] auto_ss_in,
+    input                auto_ss_rd,
     input                auto_ss_wr,
-    output        [31:0] auto_ss_out
+    input         [31:0] auto_ss_data_in,
+    input         [ 7:0] auto_ss_device_idx,
+    input         [15:0] auto_ss_state_idx,
+    input         [ 7:0] auto_ss_base_device_idx,
+    output logic  [31:0] auto_ss_data_out,
+    output logic         auto_ss_ack
 
 );
+  assign auto_ss_ack      = auto_ss_u_mono_ack;
+
+  assign auto_ss_data_out = auto_ss_u_mono_data_out;
+
+  wire        auto_ss_u_mono_ack;
+
+  wire [31:0] auto_ss_u_mono_data_out;
+
+  wire        device_match = (auto_ss_device_idx == auto_ss_base_device_idx);
+
   genvar auto_ss_idx;
 
 
@@ -7955,15 +9628,20 @@ module jt03_acc (
       .win (14),
       .wout(16)
   ) u_mono (
-      .clk        (clk),
-      .clk_en     (clk_en),
-      .op_result  (op_result),
-      .sum_en     (sum_en),
-      .zero       (zero),
-      .snd        (snd),
-      .auto_ss_in (auto_ss_in[0+:32]),
-      .auto_ss_out(auto_ss_out[0+:32]),
-      .auto_ss_wr (auto_ss_wr)
+      .clk                    (clk),
+      .clk_en                 (clk_en),
+      .op_result              (op_result),
+      .sum_en                 (sum_en),
+      .zero                   (zero),
+      .snd                    (snd),
+      .auto_ss_rd             (auto_ss_rd),
+      .auto_ss_wr             (auto_ss_wr),
+      .auto_ss_data_in        (auto_ss_data_in),
+      .auto_ss_device_idx     (auto_ss_device_idx),
+      .auto_ss_state_idx      (auto_ss_state_idx),
+      .auto_ss_base_device_idx(auto_ss_base_device_idx + 1),
+      .auto_ss_data_out       (auto_ss_u_mono_data_out),
+      .auto_ss_ack            (auto_ss_u_mono_ack)
 
   );
 
@@ -8018,11 +9696,82 @@ module jt12_top (
     input [5:0] ch_enable,  // ADPCM-A channels
     input [7:0] debug_bus,
     output [7:0] debug_view,
-    input [213*num_ch + 4176:0] auto_ss_in,
+    input auto_ss_rd,
     input auto_ss_wr,
-    output [213*num_ch + 4176:0] auto_ss_out
+    input [31:0] auto_ss_data_in,
+    input [7:0] auto_ss_device_idx,
+    input [15:0] auto_ss_state_idx,
+    input [7:0] auto_ss_base_device_idx,
+    output logic [31:0] auto_ss_data_out,
+    output logic auto_ss_ack
 
 );
+  assign auto_ss_ack = auto_ss_u_dout_ack | auto_ss_u_mmr_ack | auto_ss_u_timers_ack | auto_ss_u_pg_ack | auto_ss_u_eg_ack | auto_ss_u_egpad_ack | auto_ss_u_op_ack | auto_ss_u_rst_ack | auto_ss_u_adpcm_a_ack | auto_ss_u_adpcm_b_ack | auto_ss_u_acc_ack | auto_ss_u_lfo_ack | auto_ss_u_psg_ack | auto_ss_u_rst_pcm_ack | auto_ss_u_pcm_ack;
+
+  assign auto_ss_data_out = auto_ss_u_dout_data_out | auto_ss_u_mmr_data_out | auto_ss_u_timers_data_out | auto_ss_u_pg_data_out | auto_ss_u_eg_data_out | auto_ss_u_egpad_data_out | auto_ss_u_op_data_out | auto_ss_u_rst_data_out | auto_ss_u_adpcm_a_data_out | auto_ss_u_adpcm_b_data_out | auto_ss_u_acc_data_out | auto_ss_u_lfo_data_out | auto_ss_u_psg_data_out | auto_ss_u_rst_pcm_data_out | auto_ss_u_pcm_data_out;
+
+  wire        auto_ss_u_pcm_ack;
+
+  wire [31:0] auto_ss_u_pcm_data_out;
+
+  wire        auto_ss_u_rst_pcm_ack;
+
+  wire [31:0] auto_ss_u_rst_pcm_data_out;
+
+  wire        auto_ss_u_psg_ack;
+
+  wire [31:0] auto_ss_u_psg_data_out;
+
+  wire        auto_ss_u_lfo_ack;
+
+  wire [31:0] auto_ss_u_lfo_data_out;
+
+  wire        auto_ss_u_acc_ack;
+
+  wire [31:0] auto_ss_u_acc_data_out;
+
+  wire        auto_ss_u_adpcm_b_ack;
+
+  wire [31:0] auto_ss_u_adpcm_b_data_out;
+
+  wire        auto_ss_u_adpcm_a_ack;
+
+  wire [31:0] auto_ss_u_adpcm_a_data_out;
+
+  wire        auto_ss_u_rst_ack;
+
+  wire [31:0] auto_ss_u_rst_data_out;
+
+  wire        auto_ss_u_op_ack;
+
+  wire [31:0] auto_ss_u_op_data_out;
+
+  wire        auto_ss_u_egpad_ack;
+
+  wire [31:0] auto_ss_u_egpad_data_out;
+
+  wire        auto_ss_u_eg_ack;
+
+  wire [31:0] auto_ss_u_eg_data_out;
+
+  wire        auto_ss_u_pg_ack;
+
+  wire [31:0] auto_ss_u_pg_data_out;
+
+  wire        auto_ss_u_timers_ack;
+
+  wire [31:0] auto_ss_u_timers_data_out;
+
+  wire        auto_ss_u_mmr_ack;
+
+  wire [31:0] auto_ss_u_mmr_data_out;
+
+  wire        auto_ss_u_dout_ack;
+
+  wire [31:0] auto_ss_u_dout_data_out;
+
+  wire        device_match = (auto_ss_device_idx == auto_ss_base_device_idx);
+
   genvar auto_ss_idx;
 
 
@@ -8134,12 +9883,17 @@ module jt12_top (
       wire rst_n;
 
       jt12_rst u_rst (
-          .rst        (rst),
-          .clk        (clk),
-          .rst_n      (rst_n),
-          .auto_ss_in (auto_ss_in[213*num_ch+2284+:2]),
-          .auto_ss_out(auto_ss_out[213*num_ch+2284+:2]),
-          .auto_ss_wr (auto_ss_wr)
+          .rst                    (rst),
+          .clk                    (clk),
+          .rst_n                  (rst_n),
+          .auto_ss_rd             (auto_ss_rd),
+          .auto_ss_wr             (auto_ss_wr),
+          .auto_ss_data_in        (auto_ss_data_in),
+          .auto_ss_device_idx     (auto_ss_device_idx),
+          .auto_ss_state_idx      (auto_ss_state_idx),
+          .auto_ss_base_device_idx(auto_ss_base_device_idx + 39),
+          .auto_ss_data_out       (auto_ss_u_rst_data_out),
+          .auto_ss_ack            (auto_ss_u_rst_ack)
 
       );
 
@@ -8170,12 +9924,17 @@ module jt12_top (
           .flags    (adpcma_flags),
           .clr_flags(flag_ctl[5:0]),
 
-          .pcm55_l    (adpcmA_l),
-          .pcm55_r    (adpcmA_r),
-          .ch_enable  (ch_enable),
-          .auto_ss_in (auto_ss_in[213*num_ch+2286+:924]),
-          .auto_ss_out(auto_ss_out[213*num_ch+2286+:924]),
-          .auto_ss_wr (auto_ss_wr)
+          .pcm55_l                (adpcmA_l),
+          .pcm55_r                (adpcmA_r),
+          .ch_enable              (ch_enable),
+          .auto_ss_rd             (auto_ss_rd),
+          .auto_ss_wr             (auto_ss_wr),
+          .auto_ss_data_in        (auto_ss_data_in),
+          .auto_ss_device_idx     (auto_ss_device_idx),
+          .auto_ss_state_idx      (auto_ss_state_idx),
+          .auto_ss_base_device_idx(auto_ss_base_device_idx + 40),
+          .auto_ss_data_out       (auto_ss_u_adpcm_a_data_out),
+          .auto_ss_ack            (auto_ss_u_adpcm_a_ack)
 
       );
 
@@ -8203,38 +9962,48 @@ module jt12_top (
           .data      (adpcmb_data),
           .roe_n     (adpcmb_roe_n),
 
-          .pcm55_l    (adpcmB_l),
-          .pcm55_r    (adpcmB_r),
-          .auto_ss_in (auto_ss_in[213*num_ch+3210+:356]),
-          .auto_ss_out(auto_ss_out[213*num_ch+3210+:356]),
-          .auto_ss_wr (auto_ss_wr)
+          .pcm55_l                (adpcmB_l),
+          .pcm55_r                (adpcmB_r),
+          .auto_ss_rd             (auto_ss_rd),
+          .auto_ss_wr             (auto_ss_wr),
+          .auto_ss_data_in        (auto_ss_data_in),
+          .auto_ss_device_idx     (auto_ss_device_idx),
+          .auto_ss_state_idx      (auto_ss_state_idx),
+          .auto_ss_base_device_idx(auto_ss_base_device_idx + 47),
+          .auto_ss_data_out       (auto_ss_u_adpcm_b_data_out),
+          .auto_ss_ack            (auto_ss_u_adpcm_b_ack)
 
       );
 
       assign snd_sample = zero;
       jt10_acc u_acc (
-          .clk        (clk),
-          .clk_en     (clk_en),
-          .op_result  (op_result_hd),
-          .rl         (rl),
-          .zero       (zero),
-          .s1_enters  (s2_enters),
-          .s2_enters  (s1_enters),
-          .s3_enters  (s4_enters),
-          .s4_enters  (s3_enters),
-          .cur_ch     (cur_ch),
-          .cur_op     (cur_op),
-          .alg        (alg_I),
-          .adpcmA_l   (adpcmA_l),
-          .adpcmA_r   (adpcmA_r),
-          .adpcmB_l   (adpcmB_l),
-          .adpcmB_r   (adpcmB_r),
+          .clk                    (clk),
+          .clk_en                 (clk_en),
+          .op_result              (op_result_hd),
+          .rl                     (rl),
+          .zero                   (zero),
+          .s1_enters              (s2_enters),
+          .s2_enters              (s1_enters),
+          .s3_enters              (s4_enters),
+          .s4_enters              (s3_enters),
+          .cur_ch                 (cur_ch),
+          .cur_op                 (cur_op),
+          .alg                    (alg_I),
+          .adpcmA_l               (adpcmA_l),
+          .adpcmA_r               (adpcmA_r),
+          .adpcmB_l               (adpcmB_l),
+          .adpcmB_r               (adpcmB_r),
           // combined output
-          .left       (fm_snd_left),
-          .right      (fm_snd_right),
-          .auto_ss_in (auto_ss_in[213*num_ch+3566+:64]),
-          .auto_ss_out(auto_ss_out[213*num_ch+3566+:64]),
-          .auto_ss_wr (auto_ss_wr)
+          .left                   (fm_snd_left),
+          .right                  (fm_snd_right),
+          .auto_ss_rd             (auto_ss_rd),
+          .auto_ss_wr             (auto_ss_wr),
+          .auto_ss_data_in        (auto_ss_data_in),
+          .auto_ss_device_idx     (auto_ss_device_idx),
+          .auto_ss_state_idx      (auto_ss_state_idx),
+          .auto_ss_base_device_idx(auto_ss_base_device_idx + 53),
+          .auto_ss_data_out       (auto_ss_u_acc_data_out),
+          .auto_ss_ack            (auto_ss_u_acc_ack)
 
       );
     end else begin : gen_adpcm_no
@@ -8257,18 +10026,23 @@ module jt12_top (
       .use_adpcm(use_adpcm)
   ) u_dout (
       //    .rst_n          ( rst_n         ),
-      .clk         (clk),                            // CPU clock
-      .flag_A      (flag_A),
-      .flag_B      (flag_B),
-      .busy        (busy),
-      .adpcma_flags(adpcma_flags & flag_mask[5:0]),
-      .adpcmb_flag (adpcmb_flag & flag_mask[6]),
-      .psg_dout    (psg_dout),
-      .addr        (addr),
-      .dout        (dout),
-      .auto_ss_in  (auto_ss_in[0+:8]),
-      .auto_ss_out (auto_ss_out[0+:8]),
-      .auto_ss_wr  (auto_ss_wr)
+      .clk                    (clk),                            // CPU clock
+      .flag_A                 (flag_A),
+      .flag_B                 (flag_B),
+      .busy                   (busy),
+      .adpcma_flags           (adpcma_flags & flag_mask[5:0]),
+      .adpcmb_flag            (adpcmb_flag & flag_mask[6]),
+      .psg_dout               (psg_dout),
+      .addr                   (addr),
+      .dout                   (dout),
+      .auto_ss_rd             (auto_ss_rd),
+      .auto_ss_wr             (auto_ss_wr),
+      .auto_ss_data_in        (auto_ss_data_in),
+      .auto_ss_device_idx     (auto_ss_device_idx),
+      .auto_ss_state_idx      (auto_ss_state_idx),
+      .auto_ss_base_device_idx(auto_ss_base_device_idx + 1),
+      .auto_ss_data_out       (auto_ss_u_dout_data_out),
+      .auto_ss_ack            (auto_ss_u_dout_ack)
 
   );
 
@@ -8370,22 +10144,27 @@ module jt12_top (
       .ssg_en_I(ssg_en_I),
       .ssg_eg_I(ssg_eg_I),
 
-      .keyon_I    (keyon_I),
+      .keyon_I                (keyon_I),
       // Operator
-      .zero       (zero),
-      .s1_enters  (s1_enters),
-      .s2_enters  (s2_enters),
-      .s3_enters  (s3_enters),
-      .s4_enters  (s4_enters),
+      .zero                   (zero),
+      .s1_enters              (s1_enters),
+      .s2_enters              (s2_enters),
+      .s3_enters              (s3_enters),
+      .s4_enters              (s4_enters),
       // PSG interace
-      .psg_addr   (psg_addr),
-      .psg_data   (psg_data),
-      .psg_wr_n   (psg_wr_n),
-      .debug_bus  (debug_bus),
-      .div_setting(div_setting),
-      .auto_ss_in (auto_ss_in[8+:27*num_ch+1927]),
-      .auto_ss_out(auto_ss_out[8+:27*num_ch+1927]),
-      .auto_ss_wr (auto_ss_wr)
+      .psg_addr               (psg_addr),
+      .psg_data               (psg_data),
+      .psg_wr_n               (psg_wr_n),
+      .debug_bus              (debug_bus),
+      .div_setting            (div_setting),
+      .auto_ss_rd             (auto_ss_rd),
+      .auto_ss_wr             (auto_ss_wr),
+      .auto_ss_data_in        (auto_ss_data_in),
+      .auto_ss_device_idx     (auto_ss_device_idx),
+      .auto_ss_state_idx      (auto_ss_state_idx),
+      .auto_ss_base_device_idx(auto_ss_base_device_idx + 2),
+      .auto_ss_data_out       (auto_ss_u_mmr_data_out),
+      .auto_ss_ack            (auto_ss_u_mmr_ack)
 
   );
 
@@ -8395,25 +10174,30 @@ module jt12_top (
   jt12_timers #(
       .num_ch(num_ch)
   ) u_timers (
-      .clk         (clk),
-      .clk_en      (timer_cen),
-      .rst         (rst),
-      .zero        (zero),
-      .value_A     (value_A),
-      .value_B     (value_B),
-      .load_A      (load_A),
-      .load_B      (load_B),
-      .enable_irq_A(enable_irq_A),
-      .enable_irq_B(enable_irq_B),
-      .clr_flag_A  (clr_flag_A),
-      .clr_flag_B  (clr_flag_B),
-      .flag_A      (flag_A),
-      .flag_B      (flag_B),
-      .overflow_A  (overflow_A),
-      .irq_n       (irq_n),
-      .auto_ss_in  (auto_ss_in[27*num_ch+1935+:30]),
-      .auto_ss_out (auto_ss_out[27*num_ch+1935+:30]),
-      .auto_ss_wr  (auto_ss_wr)
+      .clk                    (clk),
+      .clk_en                 (timer_cen),
+      .rst                    (rst),
+      .zero                   (zero),
+      .value_A                (value_A),
+      .value_B                (value_B),
+      .load_A                 (load_A),
+      .load_B                 (load_B),
+      .enable_irq_A           (enable_irq_A),
+      .enable_irq_B           (enable_irq_B),
+      .clr_flag_A             (clr_flag_A),
+      .clr_flag_B             (clr_flag_B),
+      .flag_A                 (flag_A),
+      .flag_B                 (flag_B),
+      .overflow_A             (overflow_A),
+      .irq_n                  (irq_n),
+      .auto_ss_rd             (auto_ss_rd),
+      .auto_ss_wr             (auto_ss_wr),
+      .auto_ss_data_in        (auto_ss_data_in),
+      .auto_ss_device_idx     (auto_ss_device_idx),
+      .auto_ss_state_idx      (auto_ss_state_idx),
+      .auto_ss_base_device_idx(auto_ss_base_device_idx + 18),
+      .auto_ss_data_out       (auto_ss_u_timers_data_out),
+      .auto_ss_ack            (auto_ss_u_timers_ack)
 
   );
 
@@ -8428,12 +10212,17 @@ module jt12_top (
 
           .lfo_rst(1'b0),
 
-          .lfo_en     (lfo_en),
-          .lfo_freq   (lfo_freq),
-          .lfo_mod    (lfo_mod),
-          .auto_ss_in (auto_ss_in[213*num_ch+3630+:14]),
-          .auto_ss_out(auto_ss_out[213*num_ch+3630+:14]),
-          .auto_ss_wr (auto_ss_wr)
+          .lfo_en                 (lfo_en),
+          .lfo_freq               (lfo_freq),
+          .lfo_mod                (lfo_mod),
+          .auto_ss_rd             (auto_ss_rd),
+          .auto_ss_wr             (auto_ss_wr),
+          .auto_ss_data_in        (auto_ss_data_in),
+          .auto_ss_device_idx     (auto_ss_device_idx),
+          .auto_ss_state_idx      (auto_ss_state_idx),
+          .auto_ss_base_device_idx(auto_ss_base_device_idx + 56),
+          .auto_ss_data_out       (auto_ss_u_lfo_data_out),
+          .auto_ss_ack            (auto_ss_u_lfo_ack)
 
       );
     end else begin : gen_nolfo
@@ -8451,30 +10240,35 @@ module jt12_top (
           .CLKDIV       (JT49_DIV),
           .YM2203_LUMPED(YM2203_LUMPED)
       ) u_psg (  // note that input ports are not multiplexed
-          .rst_n      (~rst),
-          .clk        (clk),                                // signal on positive edge
-          .clk_en     (clk_en_ssg),                         // clock enable on negative edge
-          .addr       (psg_addr),
-          .cs_n       (1'b0),
-          .wr_n       (psg_wr_n),                           // write
-          .din        (psg_data),
-          .sound      (psg_snd),                            // combined output
-          .A          (psg_A),
-          .B          (psg_B),
-          .C          (psg_C),
-          .dout       (psg_dout),
-          .sel        (1'b1),                               // half clock speed
-          .IOA_out    (IOA_out),
-          .IOB_out    (IOB_out),
-          .IOA_in     (IOA_in),
-          .IOB_in     (IOB_in),
-          .IOA_oe     (IOA_oe),
-          .IOB_oe     (IOB_oe),
+          .rst_n                  (~rst),
+          .clk                    (clk),                           // signal on positive edge
+          .clk_en                 (clk_en_ssg),                    // clock enable on negative edge
+          .addr                   (psg_addr),
+          .cs_n                   (1'b0),
+          .wr_n                   (psg_wr_n),                      // write
+          .din                    (psg_data),
+          .sound                  (psg_snd),                       // combined output
+          .A                      (psg_A),
+          .B                      (psg_B),
+          .C                      (psg_C),
+          .dout                   (psg_dout),
+          .sel                    (1'b1),                          // half clock speed
+          .IOA_out                (IOA_out),
+          .IOB_out                (IOB_out),
+          .IOA_in                 (IOA_in),
+          .IOB_in                 (IOB_in),
+          .IOA_oe                 (IOA_oe),
+          .IOB_oe                 (IOB_oe),
           // Unused:
-          .sample     (),
-          .auto_ss_in (auto_ss_in[213*num_ch+3644+:325]),
-          .auto_ss_out(auto_ss_out[213*num_ch+3644+:325]),
-          .auto_ss_wr (auto_ss_wr)
+          .sample                 (),
+          .auto_ss_rd             (auto_ss_rd),
+          .auto_ss_wr             (auto_ss_wr),
+          .auto_ss_data_in        (auto_ss_data_in),
+          .auto_ss_device_idx     (auto_ss_device_idx),
+          .auto_ss_state_idx      (auto_ss_state_idx),
+          .auto_ss_base_device_idx(auto_ss_base_device_idx + 57),
+          .auto_ss_data_out       (auto_ss_u_psg_data_out),
+          .auto_ss_ack            (auto_ss_u_psg_ack)
 
       );
       assign snd_left  = fm_snd_left;
@@ -8502,27 +10296,32 @@ module jt12_top (
   jt12_pg #(
       .num_ch(num_ch)
   ) u_pg (
-      .rst        (rst),
-      .clk        (clk),
-      .clk_en     (clk_en),
+      .rst                    (rst),
+      .clk                    (clk),
+      .clk_en                 (clk_en),
       // Channel frequency
-      .fnum_I     (fnum_I),
-      .block_I    (block_I),
+      .fnum_I                 (fnum_I),
+      .block_I                (block_I),
       // Operator multiplying
-      .mul_II     (mul_II),
+      .mul_II                 (mul_II),
       // Operator detuning
-      .dt1_I      (dt1_I),                                      // same as JT51's DT1
+      .dt1_I                  (dt1_I),                         // same as JT51's DT1
       // Phase modulation by LFO
-      .lfo_mod    (lfo_mod),
-      .pms_I      (pms_I),
+      .lfo_mod                (lfo_mod),
+      .pms_I                  (pms_I),
       // phase operation
-      .pg_rst_II  (pg_rst_II),
-      .pg_stop    (pg_stop),
-      .keycode_II (keycode_II),
-      .phase_VIII (phase_VIII),
-      .auto_ss_in (auto_ss_in[27*num_ch+1965+:80*num_ch+88]),
-      .auto_ss_out(auto_ss_out[27*num_ch+1965+:80*num_ch+88]),
-      .auto_ss_wr (auto_ss_wr)
+      .pg_rst_II              (pg_rst_II),
+      .pg_stop                (pg_stop),
+      .keycode_II             (keycode_II),
+      .phase_VIII             (phase_VIII),
+      .auto_ss_rd             (auto_ss_rd),
+      .auto_ss_wr             (auto_ss_wr),
+      .auto_ss_data_in        (auto_ss_data_in),
+      .auto_ss_device_idx     (auto_ss_device_idx),
+      .auto_ss_state_idx      (auto_ss_state_idx),
+      .auto_ss_base_device_idx(auto_ss_base_device_idx + 21),
+      .auto_ss_data_out       (auto_ss_u_pg_data_out),
+      .auto_ss_ack            (auto_ss_u_pg_ack)
 
   );
 
@@ -8555,11 +10354,16 @@ module jt12_top (
       .ams_IV    (ams_IV),
       .amsen_IV  (amsen_IV),
 
-      .eg_V       (eg_V),
-      .pg_rst_II  (pg_rst_II),
-      .auto_ss_in (auto_ss_in[107*num_ch+2053+:64*num_ch+44]),
-      .auto_ss_out(auto_ss_out[107*num_ch+2053+:64*num_ch+44]),
-      .auto_ss_wr (auto_ss_wr)
+      .eg_V                   (eg_V),
+      .pg_rst_II              (pg_rst_II),
+      .auto_ss_rd             (auto_ss_rd),
+      .auto_ss_wr             (auto_ss_wr),
+      .auto_ss_data_in        (auto_ss_data_in),
+      .auto_ss_device_idx     (auto_ss_device_idx),
+      .auto_ss_state_idx      (auto_ss_state_idx),
+      .auto_ss_base_device_idx(auto_ss_base_device_idx + 24),
+      .auto_ss_data_out       (auto_ss_u_eg_data_out),
+      .auto_ss_ack            (auto_ss_u_eg_ack)
 
   );
 
@@ -8567,13 +10371,18 @@ module jt12_top (
       .width (10),
       .stages(4)
   ) u_egpad (
-      .clk        (clk),
-      .clk_en     (clk_en),
-      .din        (eg_V),
-      .drop       (eg_IX),
-      .auto_ss_in (auto_ss_in[171*num_ch+2097+:40]),
-      .auto_ss_out(auto_ss_out[171*num_ch+2097+:40]),
-      .auto_ss_wr (auto_ss_wr)
+      .clk                    (clk),
+      .clk_en                 (clk_en),
+      .din                    (eg_V),
+      .drop                   (eg_IX),
+      .auto_ss_rd             (auto_ss_rd),
+      .auto_ss_wr             (auto_ss_wr),
+      .auto_ss_data_in        (auto_ss_data_in),
+      .auto_ss_device_idx     (auto_ss_device_idx),
+      .auto_ss_state_idx      (auto_ss_state_idx),
+      .auto_ss_base_device_idx(auto_ss_base_device_idx + 31),
+      .auto_ss_data_out       (auto_ss_u_egpad_data_out),
+      .auto_ss_ack            (auto_ss_u_egpad_ack)
 
   );
 
@@ -8587,23 +10396,28 @@ module jt12_top (
       .eg_atten_IX  (eg_IX),
       .fb_II        (fb_II),
 
-      .test_214      (1'b0),
-      .s1_enters     (s1_enters),
-      .s2_enters     (s2_enters),
-      .s3_enters     (s3_enters),
-      .s4_enters     (s4_enters),
-      .xuse_prevprev1(xuse_prevprev1),
-      .xuse_internal (xuse_internal),
-      .yuse_internal (yuse_internal),
-      .xuse_prev2    (xuse_prev2),
-      .yuse_prev1    (yuse_prev1),
-      .yuse_prev2    (yuse_prev2),
-      .zero          (zero),
-      .op_result     (op_result),
-      .full_result   (op_result_hd),
-      .auto_ss_in    (auto_ss_in[171*num_ch+2137+:42*num_ch+147]),
-      .auto_ss_out   (auto_ss_out[171*num_ch+2137+:42*num_ch+147]),
-      .auto_ss_wr    (auto_ss_wr)
+      .test_214               (1'b0),
+      .s1_enters              (s1_enters),
+      .s2_enters              (s2_enters),
+      .s3_enters              (s3_enters),
+      .s4_enters              (s4_enters),
+      .xuse_prevprev1         (xuse_prevprev1),
+      .xuse_internal          (xuse_internal),
+      .yuse_internal          (yuse_internal),
+      .xuse_prev2             (xuse_prev2),
+      .yuse_prev1             (yuse_prev1),
+      .yuse_prev2             (yuse_prev2),
+      .zero                   (zero),
+      .op_result              (op_result),
+      .full_result            (op_result_hd),
+      .auto_ss_rd             (auto_ss_rd),
+      .auto_ss_wr             (auto_ss_wr),
+      .auto_ss_data_in        (auto_ss_data_in),
+      .auto_ss_device_idx     (auto_ss_device_idx),
+      .auto_ss_state_idx      (auto_ss_state_idx),
+      .auto_ss_base_device_idx(auto_ss_base_device_idx + 32),
+      .auto_ss_data_out       (auto_ss_u_op_data_out),
+      .auto_ss_ack            (auto_ss_u_op_ack)
 
   );
 
@@ -8632,12 +10446,17 @@ module jt12_top (
       wire             rst_pcm_n;
 
       jt12_rst u_rst_pcm (
-          .rst        (rst),
-          .clk        (clk),
-          .rst_n      (rst_pcm_n),
-          .auto_ss_in (auto_ss_in[213*num_ch+3969+:2]),
-          .auto_ss_out(auto_ss_out[213*num_ch+3969+:2]),
-          .auto_ss_wr (auto_ss_wr)
+          .rst                    (rst),
+          .clk                    (clk),
+          .rst_n                  (rst_pcm_n),
+          .auto_ss_rd             (auto_ss_rd),
+          .auto_ss_wr             (auto_ss_wr),
+          .auto_ss_data_in        (auto_ss_data_in),
+          .auto_ss_device_idx     (auto_ss_device_idx),
+          .auto_ss_state_idx      (auto_ss_state_idx),
+          .auto_ss_base_device_idx(auto_ss_base_device_idx + 67),
+          .auto_ss_data_out       (auto_ss_u_rst_pcm_data_out),
+          .auto_ss_ack            (auto_ss_u_rst_pcm_ack)
 
       );
 
@@ -8649,43 +10468,53 @@ module jt12_top (
           .DW   (11),
           .stepw(5)
       ) u_pcm (
-          .rst_n      (rst_pcm_n),
-          .clk        (clk),
-          .cen        (clk_en),
-          .cen55      (clk_en_55),
-          .pcm_wr     (pcm_wr),
-          .pcmin      ({pcm[8], pcm, 1'b0}),
-          .pcmout     (pcm_full),
-          .auto_ss_in (auto_ss_in[213*num_ch+3971+:101]),
-          .auto_ss_out(auto_ss_out[213*num_ch+3971+:101]),
-          .auto_ss_wr (auto_ss_wr)
+          .rst_n                  (rst_pcm_n),
+          .clk                    (clk),
+          .cen                    (clk_en),
+          .cen55                  (clk_en_55),
+          .pcm_wr                 (pcm_wr),
+          .pcmin                  ({pcm[8], pcm, 1'b0}),
+          .pcmout                 (pcm_full),
+          .auto_ss_rd             (auto_ss_rd),
+          .auto_ss_wr             (auto_ss_wr),
+          .auto_ss_data_in        (auto_ss_data_in),
+          .auto_ss_device_idx     (auto_ss_device_idx),
+          .auto_ss_state_idx      (auto_ss_state_idx),
+          .auto_ss_base_device_idx(auto_ss_base_device_idx + 68),
+          .auto_ss_data_out       (auto_ss_u_pcm_data_out),
+          .auto_ss_ack            (auto_ss_u_pcm_ack)
 
       );
 
 
       jt12_acc u_acc (
-          .rst        (rst),
-          .clk        (clk),
-          .clk_en     (clk_en),
-          .op_result  (op_result),
-          .rl         (rl),
+          .rst                    (rst),
+          .clk                    (clk),
+          .clk_en                 (clk_en),
+          .op_result              (op_result),
+          .rl                     (rl),
           // note that the order changes to deal
           // with the operator pipeline delay
-          .zero       (zero),
-          .s1_enters  (s2_enters),
-          .s2_enters  (s1_enters),
-          .s3_enters  (s4_enters),
-          .s4_enters  (s3_enters),
-          .ch6op      (ch6op),
-          .pcm_en     (pcm_en),                            // only enabled for channel 6
-          .pcm        (pcm2),
-          .alg        (alg_I),
+          .zero                   (zero),
+          .s1_enters              (s2_enters),
+          .s2_enters              (s1_enters),
+          .s3_enters              (s4_enters),
+          .s4_enters              (s3_enters),
+          .ch6op                  (ch6op),
+          .pcm_en                 (pcm_en),                        // only enabled for channel 6
+          .pcm                    (pcm2),
+          .alg                    (alg_I),
           // combined output
-          .left       (fm_snd_left[15:4]),
-          .right      (fm_snd_right[15:4]),
-          .auto_ss_in (auto_ss_in[213*num_ch+4072+:73]),
-          .auto_ss_out(auto_ss_out[213*num_ch+4072+:73]),
-          .auto_ss_wr (auto_ss_wr)
+          .left                   (fm_snd_left[15:4]),
+          .right                  (fm_snd_right[15:4]),
+          .auto_ss_rd             (auto_ss_rd),
+          .auto_ss_wr             (auto_ss_wr),
+          .auto_ss_data_in        (auto_ss_data_in),
+          .auto_ss_device_idx     (auto_ss_device_idx),
+          .auto_ss_state_idx      (auto_ss_state_idx),
+          .auto_ss_base_device_idx(auto_ss_base_device_idx + 70),
+          .auto_ss_data_out       (auto_ss_u_acc_data_out),
+          .auto_ss_ack            (auto_ss_u_acc_ack)
 
       );
     end
@@ -8695,23 +10524,28 @@ module jt12_top (
       assign fm_snd_right = mono_snd;
       assign snd_sample   = zero;
       jt03_acc u_acc (
-          .rst        (rst),
-          .clk        (clk),
-          .clk_en     (clk_en),
-          .op_result  (op_result_hd),
+          .rst                    (rst),
+          .clk                    (clk),
+          .clk_en                 (clk_en),
+          .op_result              (op_result_hd),
           // note that the order changes to deal
           // with the operator pipeline delay
-          .s1_enters  (s1_enters),
-          .s2_enters  (s2_enters),
-          .s3_enters  (s3_enters),
-          .s4_enters  (s4_enters),
-          .alg        (alg_I),
-          .zero       (zero),
+          .s1_enters              (s1_enters),
+          .s2_enters              (s2_enters),
+          .s3_enters              (s3_enters),
+          .s4_enters              (s4_enters),
+          .alg                    (alg_I),
+          .zero                   (zero),
           // combined output
-          .snd        (mono_snd),
-          .auto_ss_in (auto_ss_in[213*num_ch+4145+:32]),
-          .auto_ss_out(auto_ss_out[213*num_ch+4145+:32]),
-          .auto_ss_wr (auto_ss_wr)
+          .snd                    (mono_snd),
+          .auto_ss_rd             (auto_ss_rd),
+          .auto_ss_wr             (auto_ss_wr),
+          .auto_ss_data_in        (auto_ss_data_in),
+          .auto_ss_device_idx     (auto_ss_device_idx),
+          .auto_ss_state_idx      (auto_ss_state_idx),
+          .auto_ss_base_device_idx(auto_ss_base_device_idx + 73),
+          .auto_ss_data_out       (auto_ss_u_acc_data_out),
+          .auto_ss_ack            (auto_ss_u_acc_ack)
 
       );
     end
@@ -8732,32 +10566,47 @@ module jt10 (
     input       cs_n,
     input       wr_n,
 
-    output        [   7:0] dout,
-    output                 irq_n,
+    output [7:0] dout,
+    output irq_n,
     // ADPCM pins
-    output        [  19:0] adpcma_addr,   // real hardware has 10 pins multiplexed through RMPX pin
-    output        [   3:0] adpcma_bank,
-    output                 adpcma_roe_n,  // ADPCM-A ROM output enable
-    input         [   7:0] adpcma_data,   // Data from RAM
-    output        [  23:0] adpcmb_addr,   // real hardware has 12 pins multiplexed through PMPX pin
-    output                 adpcmb_roe_n,  // ADPCM-B ROM output enable
-    input         [   7:0] adpcmb_data,
+    output [19:0] adpcma_addr,  // real hardware has 10 pins multiplexed through RMPX pin
+    output [3:0] adpcma_bank,
+    output adpcma_roe_n,  // ADPCM-A ROM output enable
+    input [7:0] adpcma_data,  // Data from RAM
+    output [23:0] adpcmb_addr,  // real hardware has 12 pins multiplexed through PMPX pin
+    output adpcmb_roe_n,  // ADPCM-B ROM output enable
+    input [7:0] adpcmb_data,
     // Separated output
-    output        [   7:0] psg_A,
-    output        [   7:0] psg_B,
-    output        [   7:0] psg_C,
-    output signed [  15:0] fm_snd,
+    output [7:0] psg_A,
+    output [7:0] psg_B,
+    output [7:0] psg_C,
+    output signed [15:0] fm_snd,
     // combined output
-    output        [   9:0] psg_snd,
-    output signed [  15:0] snd_right,
-    output signed [  15:0] snd_left,
-    output                 snd_sample,
-    input         [   5:0] ch_enable,
-    input         [5454:0] auto_ss_in,
-    input                  auto_ss_wr,
-    output        [5454:0] auto_ss_out
+    output [9:0] psg_snd,
+    output signed [15:0] snd_right,
+    output signed [15:0] snd_left,
+    output snd_sample,
+    input [5:0] ch_enable,
+    input auto_ss_rd,
+    input auto_ss_wr,
+    input [31:0] auto_ss_data_in,
+    input [7:0] auto_ss_device_idx,
+    input [15:0] auto_ss_state_idx,
+    input [7:0] auto_ss_base_device_idx,
+    output logic [31:0] auto_ss_data_out,
+    output logic auto_ss_ack
     // ADPCM-A channels
 );
+  assign auto_ss_ack      = auto_ss_u_jt12_ack;
+
+  assign auto_ss_data_out = auto_ss_u_jt12_data_out;
+
+  wire        auto_ss_u_jt12_ack;
+
+  wire [31:0] auto_ss_u_jt12_data_out;
+
+  wire        device_match = (auto_ss_device_idx == auto_ss_base_device_idx);
+
   genvar auto_ss_idx;
 
 
@@ -8816,9 +10665,14 @@ module jt10 (
       // unused pins
       .en_hifi_pcm(1'b0),  // used only on YM2612 mode
       .debug_view(),
-      .auto_ss_in(auto_ss_in[0+:5455]),
-      .auto_ss_out(auto_ss_out[0+:5455]),
-      .auto_ss_wr(auto_ss_wr)
+      .auto_ss_rd(auto_ss_rd),
+      .auto_ss_wr(auto_ss_wr),
+      .auto_ss_data_in(auto_ss_data_in),
+      .auto_ss_device_idx(auto_ss_device_idx),
+      .auto_ss_state_idx(auto_ss_state_idx),
+      .auto_ss_base_device_idx(auto_ss_base_device_idx + 1),
+      .auto_ss_data_out(auto_ss_u_jt12_data_out),
+      .auto_ss_ack(auto_ss_u_jt12_ack)
 
   );
 

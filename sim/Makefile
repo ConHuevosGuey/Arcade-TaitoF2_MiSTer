@@ -66,18 +66,17 @@ HDL_SRC += ../rtl/tc0100scn.sv ../rtl/tc0110pr.sv ../rtl/tc0220ioc.sv ../rtl/tc0
 HDL_SRC += ../rtl/tc0260dar.sv ../rtl/tc0200obj_extender.sv ../rtl/tc0360pri.sv ../rtl/tc0190fmc.sv
 HDL_SRC += ../rtl/ram.sv ../rtl/jtframe_frac_cen.v ../rtl/memory_stream.sv ../rtl/savestates.sv ../rtl/ddram.sv
 HDL_SRC += ../rtl/audio_mix.sv ../sys/iir_filter.v
+HDL_SRC += verilator.vlt
 
 
 ifeq ($(USE_AUTO_SS),1)
 VERILATOR_ARGS += -DUSE_AUTO_SS
-HDL_SRC += ../rtl/tv80_auto_ss.v
-HDL_SRC += ../rtl/jt10_auto_ss.v
+HDL_SRC += ../rtl/tv80_auto_ss.sv
+HDL_SRC += ../rtl/jt10_auto_ss.sv
 else
 HDL_SRC += ../rtl/tv80/tv80s.v ../rtl/tv80/tv80_alu.v ../rtl/tv80/tv80_reg.v ../rtl/tv80/tv80_core.v ../rtl/tv80/tv80_mcode.v
 VERILATOR_ARGS += -F ../rtl/jt12/ver/verilator/gather.f
 endif
-
-HDL_GEN =
 
 all: sim
 

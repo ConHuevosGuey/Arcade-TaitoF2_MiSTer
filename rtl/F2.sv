@@ -1310,25 +1310,35 @@ singleport_ram #(.WIDTH(8), .WIDTHAD(17)) sound_rom(
 );
 
 `ifdef USE_AUTO_SS
-localparam Z80_SS_BITS = 358;
-wire [Z80_SS_BITS-1:0] z80_ss_in, z80_ss_out;
-wire z80_ss_wr;
+wire [31:0] z80_ss_in, z80_ss_out;
+wire z80_ss_wr, z80_ss_rd, z80_ss_ack;
+wire [15:0] z80_ss_state_idx;
+wire [7:0] z80_ss_device_idx;
 
-auto_save_adaptor #(.N_BITS(Z80_SS_BITS), .SS_IDX(SSIDX_Z80)) z80_ss_adaptor(
+auto_save_adaptor2 #(.SS_IDX(SSIDX_Z80)) z80_ss_adaptor(
     .clk,
     .ssbus(ssb[8]),
-    .bits_in(z80_ss_out),
-    .bits_out(z80_ss_in),
-    .bits_wr(z80_ss_wr)
+    .rd(z80_ss_rd),
+    .wr(z80_ss_wr),
+    .ack(z80_ss_ack),
+    .device_idx(z80_ss_device_idx),
+    .state_idx(z80_ss_state_idx),
+    .wr_data(z80_ss_in),
+    .rd_data(z80_ss_out)
 );
 `endif
 
 tv80s z80(
 
 `ifdef USE_AUTO_SS
-    .auto_ss_out(z80_ss_out),
-    .auto_ss_in(z80_ss_in),
+    .auto_ss_rd(z80_ss_rd),
     .auto_ss_wr(z80_ss_wr),
+    .auto_ss_device_idx(z80_ss_device_idx),
+    .auto_ss_state_idx(z80_ss_state_idx),
+    .auto_ss_base_device_idx(0),
+    .auto_ss_data_in(z80_ss_in),
+    .auto_ss_data_out(z80_ss_out),
+    .auto_ss_ack(z80_ss_ack),
 `endif
 
     .clk(clk),
@@ -1353,24 +1363,34 @@ tv80s z80(
 
 
 `ifdef USE_AUTO_SS
-localparam YM_SS_BITS = 5455;
-wire [YM_SS_BITS-1:0] ym_ss_in, ym_ss_out;
-wire ym_ss_wr;
+wire [31:0] ym_ss_in, ym_ss_out;
+wire ym_ss_wr, ym_ss_rd, ym_ss_ack;
+wire [15:0] ym_ss_state_idx;
+wire [7:0] ym_ss_device_idx;
 
-auto_save_adaptor #(.N_BITS(YM_SS_BITS), .SS_IDX(SSIDX_YM)) ym_ss_adaptor(
+auto_save_adaptor2 #(.SS_IDX(SSIDX_YM)) ym_ss_adaptor(
     .clk,
     .ssbus(ssb[9]),
-    .bits_in(ym_ss_out),
-    .bits_out(ym_ss_in),
-    .bits_wr(ym_ss_wr)
+    .rd(ym_ss_rd),
+    .wr(ym_ss_wr),
+    .ack(ym_ss_ack),
+    .device_idx(ym_ss_device_idx),
+    .state_idx(ym_ss_state_idx),
+    .wr_data(ym_ss_in),
+    .rd_data(ym_ss_out)
 );
 `endif
 
 jt10 jt10(
 `ifdef USE_AUTO_SS
+    .auto_ss_rd(ym_ss_rd),
     .auto_ss_wr(ym_ss_wr),
-    .auto_ss_in(ym_ss_in),
-    .auto_ss_out(ym_ss_out),
+    .auto_ss_device_idx(ym_ss_device_idx),
+    .auto_ss_state_idx(ym_ss_state_idx),
+    .auto_ss_base_device_idx(0),
+    .auto_ss_data_in(ym_ss_in),
+    .auto_ss_data_out(ym_ss_out),
+    .auto_ss_ack(ym_ss_ack),
 `endif
 
     .rst(~SNRESn),

@@ -22,12 +22,6 @@
 // stages must be greater than 2
 module jt12_sh #(parameter width=5, stages=24 )
 (
-`ifdef USE_AUTO_SS
-	input  [stages*width - 1:0] auto_ss_in,
-	input					    auto_ss_wr,
-	output [stages*width - 1:0] auto_ss_out,
-`endif // USE_AUTO_SS
-
 	input 				clk,
 	input				clk_en /* synthesis direct_enable */,
 	input	[width-1:0]	din,
@@ -36,25 +30,19 @@ module jt12_sh #(parameter width=5, stages=24 )
 
 reg [stages-1:0] bits[width-1:0];
 
+always @(posedge clk) begin
+    if(clk_en) begin
+        for (int i = 0; i < width; i = i + 1) begin
+	    	bits[i] <= {bits[i][stages-2:0], din[i]};
+		end
+    end
+end
+
+
 genvar i;
 generate
 	for (i=0; i < width; i=i+1) begin: bit_shifter
-		always @(posedge clk) begin
-			if(clk_en) begin
-				bits[i] <= {bits[i][stages-2:0], din[i]};
-			end
-
-`ifdef USE_AUTO_SS
-			if (auto_ss_wr) begin
-				bits[i] <= auto_ss_in[i*stages+:stages];
-			end
-`endif
-		end
 		assign drop[i] = bits[i][stages-1];
-
-`ifdef USE_AUTO_SS
-		assign auto_ss_out[i*stages+:stages] = bits[i];
-`endif
 	end
 endgenerate
 

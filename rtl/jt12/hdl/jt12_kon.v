@@ -42,12 +42,16 @@ parameter num_ch=6;
 
 wire csr_out;
 
+reg overflow2;
+reg [4:0] overflow_cycle;
+reg        up_keyon_reg;
+reg  [3:0] tkeyon_op;
+reg  [2:0] tkeyon_ch;
+
+
 generate
 if(num_ch==6) begin
     // capture overflow signal so it lasts long enough
-    reg overflow2;
-    reg [4:0] overflow_cycle;
-
     always @(posedge clk) if( clk_en ) begin
         if(overflow_A) begin
             overflow2 <= 1'b1;
@@ -60,9 +64,6 @@ if(num_ch==6) begin
     always @(posedge clk) if( clk_en )
         keyon_I <= (csm&&next_ch==3'd2&&overflow2) || csr_out;
 
-    reg        up_keyon_reg;
-    reg  [3:0] tkeyon_op;
-    reg  [2:0] tkeyon_ch;
     wire       key_upnow;
 
     assign key_upnow = up_keyon_reg && (tkeyon_ch==next_ch) && (next_op == 2'd3);
