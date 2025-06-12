@@ -1002,7 +1002,7 @@ TC0360PRI #(.SS_IDX(SSIDX_PRIORITY)) tc0360pri(
     .cpu_addr(cpu_addr[3:0]),
     .cpu_din(cfg_360pri_high ? cpu_data_out[15:8] : cpu_data_out[7:0]),
     .cpu_dout(pri360_data_out),
-    .cpu_ds_n,
+    .cpu_ds_n(cfg_360pri_high ? cpu_ds_n[1] : cpu_ds_n[0]),
     .cpu_rw,
     .cs(~PRIORITYn),
 

@@ -9,8 +9,8 @@ module TC0360PRI #(parameter SS_IDX=-1) (
 
     input        cs,
     input [3:0]  cpu_addr,
-    input cpu_rw,
-    input [1:0] cpu_ds_n,
+    input        cpu_rw,
+    input        cpu_ds_n,
 
     input [13:0] color_in0 /* verilator public_flat */,
     input [13:0] color_in1 /* verilator public_flat */,
@@ -33,7 +33,7 @@ always_ff @(posedge clk) begin
             if (cpu_rw) begin
                 cpu_dout <= ctrl[cpu_addr[3:0]];
             end else begin
-                if (~cpu_ds_n[0]) ctrl[cpu_addr[3:0]]  <= cpu_din;
+                if (~cpu_ds_n) ctrl[cpu_addr[3:0]]  <= cpu_din;
             end
         end
 
