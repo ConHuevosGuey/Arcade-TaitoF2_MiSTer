@@ -115,9 +115,15 @@ SDL_Texture *get_obj_texture(uint16_t code, uint8_t palette)
     uint32_t pal32[16];
     for( int i = 0; i < 16; i++ )
     {
+#if 0
         uint8_t r = ((rawpal[i] & 0xf000) >> 8) | ((rawpal[i] & 0x0008) >> 0);
         uint8_t g = ((rawpal[i] & 0x0f00) >> 4) | ((rawpal[i] & 0x0004) << 1);
         uint8_t b = ((rawpal[i] & 0x00f0) >> 0) | ((rawpal[i] & 0x0002) << 2);
+#else
+        uint8_t r = ((rawpal[i] & 0x7c00) >> 7);
+        uint8_t g = ((rawpal[i] & 0x03e0) >> 2);
+        uint8_t b = ((rawpal[i] & 0x001f) << 3);
+#endif
 
         uint32_t c = (r << 24) | (g << 16) | (b << 8);
         pal32[i] = c;

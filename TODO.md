@@ -8,9 +8,9 @@
 - [x] CPU SDR cache
 - [x] Clock enable catchup for CPU
 - [x] Clean up 68k savestate code
-- [ ] Clocked auto_ss
+- [x] Clocked auto_ss
 
-- [ ] MAME keyboard inputs
+- [x] MAME keyboard inputs
 - [x] Savestate mapping
 - [ ] High score saving
 - [ ] Service and tilt buttons

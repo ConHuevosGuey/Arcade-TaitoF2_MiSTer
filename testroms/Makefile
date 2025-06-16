@@ -2,14 +2,14 @@ CC = m68k-elf-gcc
 OBJCOPY = m68k-elf-objcopy
 OBJDUMP = m68k-elf-objdump
 MAME = ../util/taito_mame
-PYTHON = uv --project ../util run
+PYTHON = uv run
 SPLIT_ROM = $(PYTHON) ../util/split_rom.py
 VASM = ../util/vasmz80_oldstyle
 MISTER_HOSTNAME=mister-dev
 
 
 TARGET = driftout_test
-SRCS = init.c main.c interrupts_default.c comms.c tilemap.c input.c printf/printf.c
+SRCS = init.c main.c interrupts_default.c comms.c tilemap.c input.c color.c printf/printf.c
 SRCS += obj_test.c audio_240p.c tc0360pri.c
 CHR = font.chr 
 ASM = savestate.s

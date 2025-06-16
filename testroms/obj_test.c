@@ -7,6 +7,7 @@ void obj_grid(int x, int y, const GridOptions *opts, TC0200OBJ_Inst **ptr)
     int count = opts->w * opts->h;
     int idx = 0;
     uint16_t bit;
+    uint16_t tile = opts->tile ? opts->tile : 0x1a4e;
 
     bit = 1 << (count-1);
 
@@ -26,7 +27,8 @@ void obj_grid(int x, int y, const GridOptions *opts, TC0200OBJ_Inst **ptr)
                 o->zoom_y = opts->zoom_y;
             }
 
-            o->code = 0x1a4e + (idx % 10);
+            o->code = tile + (idx % 10);
+            o->color = opts->color;
             o->is_seq  = opts->seq & bit ? 1 : 0;
             o->inc_x   = opts->inc_x & bit ? 1 : 0;
             o->inc_y   = opts->inc_y & bit ? 1 : 0;

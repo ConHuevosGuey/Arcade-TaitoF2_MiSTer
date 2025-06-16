@@ -20,7 +20,8 @@ typedef struct
     uint16_t zoom;
     uint16_t extra;
     uint16_t pos;
-
+    uint16_t tile;
+    uint16_t color;
 } GridOptions;
 
 void obj_grid(int x, int y, const GridOptions *opts, TC0200OBJ_Inst **ptr);

@@ -134,3 +134,19 @@ void sym_at(int x, int y, uint16_t sym)
     }
 }
 
+uint16_t *fg0_ptr = NULL;
+
+void fg0_gfx(int ch)
+{
+    fg0_ptr = SCN->fg0_gfx + (8 * ch);
+}
+
+void fg0_row(uint8_t x0, uint8_t x1, uint8_t x2, uint8_t x3, uint8_t x4, uint8_t x5, uint8_t x6, uint8_t x7)
+{
+    uint16_t gfx;
+    gfx  = (x0&1) << 7 | (x1&1) << 6 | (x2&1) << 5 | (x3&1) << 4 | (x4&1) << 3 | (x5&1) << 2 | (x6&1) << 1 | (x7&1) << 0;
+    gfx |= (x0&2) << 14 | (x1&2) << 13 | (x2&2) << 12 | (x3&2) << 11 | (x4&2) << 10 | (x5&2) << 9 | (x6&2) << 8 | (x7&2) << 7;
+    *fg0_ptr = gfx;
+    fg0_ptr++;
+}
+

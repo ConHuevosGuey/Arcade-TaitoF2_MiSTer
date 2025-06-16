@@ -2,9 +2,16 @@
 
 #include "system.h"
 
+static uint8_t blend_mode = 0;
+
+void tc0360pri_vblank()
+{
+    TC0360PRI->blend_mode = blend_mode;
+}
+
 void tc0360pri_set_blendmode(uint8_t bm)
 {
-    TC0360PRI->blend_mode = bm;
+    blend_mode = bm;
 }
 
 void tc0360pri_set_roz(uint8_t priority, uint8_t color)

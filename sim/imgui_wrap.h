@@ -10,6 +10,8 @@ bool imgui_init(const char *title);
 bool imgui_begin_frame();
 void imgui_end_frame();
 
+uint32_t imgui_get_buttons();
+
 struct SDL_Renderer;
 SDL_Renderer *imgui_get_renderer();
 

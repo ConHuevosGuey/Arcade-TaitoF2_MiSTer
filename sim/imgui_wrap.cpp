@@ -8,6 +8,13 @@
 SDL_Window *sdl_window;
 SDL_Renderer *sdl_renderer;
 
+#define BTN_RIGHT 0x0001
+#define BTN_LEFT 0x0002
+#define BTN_DOWN 0x0004
+#define BTN_UP 0x0008
+
+static uint32_t buttons;
+
 bool imgui_init(const char *title)
 {
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_GAMECONTROLLER) != 0)
@@ -36,8 +43,8 @@ bool imgui_init(const char *title)
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO(); (void)io;
-    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
-    io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
+    //io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
+    //io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
 
     // Setup Dear ImGui style
     ImGui::StyleColorsDark();
@@ -63,6 +70,26 @@ bool imgui_begin_frame()
             return false;
         if (event.type == SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_CLOSE && event.window.windowID == SDL_GetWindowID(sdl_window))
             return false;
+
+        if (!ImGui::GetIO().WantCaptureKeyboard)
+        {
+            uint32_t bits = 0;
+            if (event.type == SDL_KEYDOWN || event.type == SDL_KEYUP)
+            {
+                switch(event.key.keysym.sym)
+                {
+                    case SDLK_LEFT: bits = BTN_LEFT; break;
+                    case SDLK_RIGHT: bits = BTN_RIGHT; break;
+                    case SDLK_UP: bits = BTN_UP; break;
+                    case SDLK_DOWN: bits = BTN_DOWN; break;
+                }
+
+                if (event.type == SDL_KEYDOWN)
+                    buttons |= bits;
+                else
+                    buttons &= ~bits;
+            }
+        }
     }
 
     ImGui_ImplSDLRenderer2_NewFrame();
@@ -70,6 +97,11 @@ bool imgui_begin_frame()
     ImGui::NewFrame();
 
     return true;
+}
+
+uint32_t imgui_get_buttons()
+{
+    return buttons;
 }
 
 void imgui_end_frame()

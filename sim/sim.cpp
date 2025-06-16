@@ -226,6 +226,8 @@ int main(int argc, char **argv)
         top->dswb = dipswitch_b & 0xff;
         top->pause = system_pause;
 
+        top->joystick_p1 = imgui_get_buttons();
+
         if (simulation_run || simulation_step)
         {
             if (simulation_step_vblank)
