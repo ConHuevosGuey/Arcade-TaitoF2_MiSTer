@@ -77,6 +77,10 @@ sim/pulirula:
 sim/ninjak:
 	$(MAKE) -j8 -C sim run GAME=ninjak
 
+sim/thundfox:
+	$(MAKE) -j8 -C sim run GAME=thundfox
+
+
 
 sim/qjinsei_test:
 	$(MAKE) -j8 -C testroms TARGET=qjinsei_test

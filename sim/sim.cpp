@@ -71,9 +71,9 @@ void sim_tick(int count = 1)
         }
         
         sdram.update_channel_64(top->sdr_cpu_addr, top->sdr_cpu_req, 1, 0, 0, &top->sdr_cpu_q, &top->sdr_cpu_ack);
-        sdram.update_channel_32(top->sdr_scn_main_addr, top->sdr_scn_main_req, 1, 0, 0, &top->sdr_scn_main_q, &top->sdr_scn_main_ack);
+        sdram.update_channel_32(top->sdr_scn0_addr, top->sdr_scn0_req, 1, 0, 0, &top->sdr_scn0_q, &top->sdr_scn0_ack);
+        sdram.update_channel_32(top->sdr_scn_pivot_addr, top->sdr_scn_pivot_req, 1, 0, 0, &top->sdr_scn_pivot_q, &top->sdr_scn_pivot_ack);
         sdram.update_channel_16(top->sdr_audio_addr, top->sdr_audio_req, 1, 0, 0, &top->sdr_audio_q, &top->sdr_audio_ack);
-        sdram.update_channel_16(top->sdr_pivot_addr, top->sdr_pivot_req, 1, 0, 0, &top->sdr_pivot_q, &top->sdr_pivot_ack);
         video.clock(top->ce_pixel != 0, top->hblank != 0, top->vblank != 0, top->red, top->green, top->blue);
         
         // Process memory stream operations

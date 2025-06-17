@@ -12,9 +12,11 @@ module TC0360PRI #(parameter SS_IDX=-1) (
     input        cpu_rw,
     input        cpu_ds_n,
 
+    input        fullwidth,
+
     input [13:0] color_in0 /* verilator public_flat */,
     input [13:0] color_in1 /* verilator public_flat */,
-    input [5:0]  color_in2 /* verilator public_flat */,
+    input [13:0] color_in2 /* verilator public_flat */,
     output [13:0] color_out /* verilator public_flat */,
 
     ssbus_if.slave ssbus
@@ -52,7 +54,7 @@ end
 
 wire [1:0] sel0 = color_in0[13:12];
 wire [1:0] sel1 = color_in1[13:12];
-wire [1:0] sel2 = ctrl[1][7:6];
+wire [1:0] sel2 = fullwidth ? color_in2[13:12] : ctrl[1][7:6];
 
 wire [15:0] prio_vals0 = { ctrl[5], ctrl[4] };
 wire [15:0] prio_vals1 = { ctrl[7], ctrl[6] };
@@ -64,7 +66,7 @@ wire [3:0] prio2 = |color_in2[3:0] ? { prio_vals2[ 4 * sel2 +: 4 ] } : 4'b0;
 
 wire [11:0] color0 = color_in0[11:0];
 wire [11:0] color1 = color_in1[11:0];
-wire [11:0] color2 = { ctrl[1][5:0], color_in2 };
+wire [11:0] color2 = fullwidth ? color_in2[11:0] : { ctrl[1][5:0], color_in2[5:0] };
 
 wire [1:0] blend_mode = ctrl[0][7:6];
 wire [1:0] blend0 = ctrl[0][1:0];

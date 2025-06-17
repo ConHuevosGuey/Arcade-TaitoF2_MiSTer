@@ -313,6 +313,30 @@ static void load_ninjak()
     top->game = GAME_NINJAK;
 }
 
+static void load_thundfox()
+{
+    g_fs.addSearchPath("../roms/thundfox.zip");
+
+    load_audio("c28-14.3");
+
+    sdram.load_data("c28-13-1.51", CPU_ROM_SDR_BASE + 1, 2);
+    sdram.load_data("c28-16-1.40", CPU_ROM_SDR_BASE + 0, 2);
+    sdram.load_data("c28-08.50", CPU_ROM_SDR_BASE + 0x40001, 2);
+    sdram.load_data("c28-07.39", CPU_ROM_SDR_BASE + 0x40000, 2);
+		
+    sdram.load_data("c28-02.61",  SCN0_ROM_SDR_BASE, 1);
+    sdram.load_data("c28-01.63",  SCN1_ROM_SDR_BASE, 1);
+
+    sdram.load_data("c28-06.41",  ADPCMA_ROM_SDR_BASE, 1);
+    sdram.load_data("c28-05.42",  ADPCMB_ROM_SDR_BASE, 1);
+
+    ddr_memory.load_data("c28-03.29", OBJ_DATA_DDR_BASE, 2);
+    ddr_memory.load_data("c28-04.28", OBJ_DATA_DDR_BASE + 0x1, 2);
+
+    top->game = GAME_THUNDFOX;
+}
+
+
 bool game_init(game_t game)
 {
     g_fs.clearSearchPaths();
@@ -332,6 +356,7 @@ bool game_init(game_t game)
         case GAME_CAMELTRY: load_cameltry(); break;
         case GAME_PULIRULA: load_pulirula(); break;
         case GAME_NINJAK: load_ninjak(); break;
+        case GAME_THUNDFOX: load_thundfox(); break;
         default: return false;
     }
 

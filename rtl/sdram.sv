@@ -56,7 +56,7 @@ module sdram
     output reg        ch3_ack,
 
     input      [26:0] ch4_addr,
-    output reg [15:0] ch4_dout,
+    output reg [31:0] ch4_dout,
     input             ch4_req,
     output reg        ch4_ack
 );
@@ -172,7 +172,8 @@ always @(posedge clk) begin
     if(data_ready_delay3[1]) ch3_ack <= ch3_req;
 
     if(data_ready_delay4[4]) ch4_dout[15:00] <= dq_reg;
-    if(data_ready_delay4[4]) ch4_ack <= ch4_req;
+    if(data_ready_delay4[3]) ch4_dout[31:16] <= dq_reg;
+    if(data_ready_delay4[3]) ch4_ack <= ch4_req;
 
     SDRAM_DQ <= 16'bZ;
 

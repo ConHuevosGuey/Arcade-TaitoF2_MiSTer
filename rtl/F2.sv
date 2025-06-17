@@ -35,20 +35,20 @@ module F2(
     output reg        sdr_cpu_req,
     input             sdr_cpu_ack,
 
-    output reg [26:0] sdr_scn_main_addr,
-    input      [31:0] sdr_scn_main_q,
-    output reg        sdr_scn_main_req,
-    input             sdr_scn_main_ack,
+    output reg [26:0] sdr_scn0_addr,
+    input      [31:0] sdr_scn0_q,
+    output reg        sdr_scn0_req,
+    input             sdr_scn0_ack,
+
+    output reg [26:0] sdr_scn_pivot_addr,
+    input      [31:0] sdr_scn_pivot_q,
+    output reg        sdr_scn_pivot_req,
+    input             sdr_scn_pivot_ack,
 
     output reg [26:0] sdr_audio_addr,
     input      [15:0] sdr_audio_q,
     output reg        sdr_audio_req,
     input             sdr_audio_ack,
-
-    output reg [26:0] sdr_pivot_addr,
-    input      [15:0] sdr_pivot_q,
-    output reg        sdr_pivot_req,
-    input             sdr_pivot_ack,
 
     // Memory stream interface
     output            ddr_acquire,
@@ -90,7 +90,8 @@ wire [1:0] cfg_obj_extender /* verilator public_flat */;
 wire [15:0] cfg_addr_rom;
 wire [15:0] cfg_addr_rom1;
 wire [15:0] cfg_addr_work_ram;
-wire [15:0] cfg_addr_screen;
+wire [15:0] cfg_addr_screen0;
+wire [15:0] cfg_addr_screen1;
 wire [15:0] cfg_addr_obj;
 wire [15:0] cfg_addr_color;
 wire [15:0] cfg_addr_io0;
@@ -124,7 +125,8 @@ game_board_config game_board_config(
     .cfg_addr_rom,
     .cfg_addr_rom1,
     .cfg_addr_work_ram,
-    .cfg_addr_screen,
+    .cfg_addr_screen0,
+    .cfg_addr_screen1,
     .cfg_addr_obj,
     .cfg_addr_color,
     .cfg_addr_io0,
@@ -157,6 +159,11 @@ ddr_mux ddr_mux(
     .b(ddr_obj)
 );
 
+wire [26:0] sdr_scn1_addr, sdr_pivot_addr;
+wire sdr_pivot_req, sdr_scn1_req;
+assign sdr_scn_pivot_addr = cfg_100scn ? sdr_scn1_addr : sdr_pivot_addr;
+assign sdr_scn_pivot_req = cfg_100scn ? sdr_scn1_req : sdr_pivot_req;
+
 reg [31:0] ss_saved_ssp;
 reg [31:0] ss_restore_ssp;
 reg ss_write = 0;
@@ -164,9 +171,9 @@ reg ss_read = 0;
 wire ss_busy;
 
 ssbus_if ssbus();
-ssbus_if ssb[16]();
+ssbus_if ssb[18]();
 
-ssbus_mux #(.COUNT(16)) ssmux(
+ssbus_mux #(.COUNT(18)) ssmux(
     .clk,
     .slave(ssbus),
     .masters(ssb)
@@ -389,7 +396,8 @@ end
 
 logic ROMn; // CPU ROM
 logic WORKn; // CPU RAM
-logic SCREENn;
+logic SCREEN0n;
+logic SCREEN1n;
 logic COLORn;
 logic IO0n, IO1n;
 logic OBJECTn;
@@ -400,12 +408,19 @@ logic CCHIPn;
 logic PIVOTn;
 logic GROWL_HACKn;
 
-wire SDTACKn, CDTACKn, CPUENn, dar_dtack_n, pivot_dtack_n;
+wire SDTACK0n, SDTACK1n, CDTACKn, CPUENn, dar_dtack_n, pivot_dtack_n;
 
 //wire sdr_dtack_n = sdr_cpu_req != sdr_cpu_ack;
 wire sdr_dtack_n;
 
-wire dtack_n = sdr_dtack_n | pre_sdr_dtack_n | SDTACKn | (cfg_260dar ? dar_dtack_n : CDTACKn) | CPUENn | pivot_dtack_n;
+wire dtack_n = sdr_dtack_n
+             | pre_sdr_dtack_n
+             | SDTACK0n
+             | SDTACK1n
+             | (cfg_260dar ? dar_dtack_n : CDTACKn)
+             | CPUENn
+             | pivot_dtack_n;
+
 wire [2:0] IPLn;
 wire DTACKn = dtack_n;
 
@@ -729,49 +744,6 @@ TC0190FMC #(.SS_IDX(SSIDX_190FMC)) tc0190fmc(
     .ssbus(ssb[12])
 );
 
-
-//////////////////////////////////
-//// SCREEN TC0100SCN
-wire [14:0] scn_main_ram_addr;
-wire [15:0] scn_main_data_out;
-wire [15:0] scn_main_ram_din;
-wire [15:0] scn_main_ram_dout;
-wire scn_main_ram_we_up_n, scn_main_ram_we_lo_n;
-wire scn_main_ram_ce_0_n, scn_main_ram_ce_1_n;
-
-wire [14:0] scn_main_dot_color;
-
-wire [14:0] scn_ram_0_addr;
-wire [15:0] scn_ram_0_data;
-wire scn_ram_0_lds_n, scn_ram_0_uds_n;
-
-m68k_ram #(.WIDTHAD(15)) scn_ram_0(
-    .clock(clk),
-    .address(scn_ram_0_addr),
-    .we_lds_n(scn_ram_0_lds_n),
-    .we_uds_n(scn_ram_0_uds_n),
-    .data(scn_ram_0_data),
-    .q(scn_main_ram_din)
-);
-
-m68k_ram_ss_adaptor #(.WIDTHAD(15), .SS_IDX(SSIDX_SCN_RAM_0)) scn_ram_0_ss(
-    .clk,
-    .addr_in(scn_main_ram_addr),
-    .lds_n_in(scn_main_ram_ce_0_n | scn_main_ram_we_lo_n),
-    .uds_n_in(scn_main_ram_ce_0_n | scn_main_ram_we_up_n),
-    .data_in(scn_main_ram_dout),
-
-    .q(scn_main_ram_din),
-
-    .addr_out(scn_ram_0_addr),
-    .lds_n_out(scn_ram_0_lds_n),
-    .uds_n_out(scn_ram_0_uds_n),
-    .data_out(scn_ram_0_data),
-
-    .ssbus(ssb[4])
-);
-
-
 wire HSYNCn;
 wire VSYNCn;
 wire HBLn;
@@ -791,10 +763,53 @@ assign blue = cfg_260dar ? dar_blue : {color_ram_q[14:10], color_ram_q[14:12]};
 assign green = cfg_260dar ? dar_green : {color_ram_q[9:5], color_ram_q[9:7]};
 assign red = cfg_260dar ? dar_red : {color_ram_q[4:0], color_ram_q[4:2]};
 
-wire [20:0] scn_main_rom_address;
-assign sdr_scn_main_addr = SCN0_ROM_SDR_BASE[26:0] + { 6'b0, scn_main_rom_address[20:0] };
 
-TC0100SCN #(.SS_IDX(SSIDX_SCN_0)) scn_main(
+//////////////////////////////////
+//// SCREEN 0 TC0100SCN
+wire [14:0] scn0_ram_addr;
+wire [15:0] scn0_data_out;
+wire [15:0] scn0_ram_din;
+wire [15:0] scn0_ram_dout;
+wire scn0_ram_we_up_n, scn0_ram_we_lo_n;
+wire scn0_ram_ce_0_n, scn0_ram_ce_1_n;
+
+wire [14:0] scn0_dot_color;
+
+wire [14:0] scn_ram_0_addr;
+wire [15:0] scn_ram_0_data;
+wire scn_ram_0_lds_n, scn_ram_0_uds_n;
+
+m68k_ram #(.WIDTHAD(15)) scn_ram_0(
+    .clock(clk),
+    .address(scn_ram_0_addr),
+    .we_lds_n(scn_ram_0_lds_n),
+    .we_uds_n(scn_ram_0_uds_n),
+    .data(scn_ram_0_data),
+    .q(scn0_ram_din)
+);
+
+m68k_ram_ss_adaptor #(.WIDTHAD(15), .SS_IDX(SSIDX_SCN_RAM_0)) scn_ram_0_ss(
+    .clk,
+    .addr_in(scn0_ram_addr),
+    .lds_n_in(scn0_ram_ce_0_n | scn0_ram_we_lo_n),
+    .uds_n_in(scn0_ram_ce_0_n | scn0_ram_we_up_n),
+    .data_in(scn0_ram_dout),
+
+    .q(scn0_ram_din),
+
+    .addr_out(scn_ram_0_addr),
+    .lds_n_out(scn_ram_0_lds_n),
+    .uds_n_out(scn_ram_0_uds_n),
+    .data_out(scn_ram_0_data),
+
+    .ssbus(ssb[4])
+);
+
+
+wire [20:0] scn0_rom_address;
+assign sdr_scn0_addr = SCN0_ROM_SDR_BASE[26:0] + { 6'b0, scn0_rom_address[20:0] };
+
+TC0100SCN #(.SS_IDX(SSIDX_SCN_0)) scn0(
     .clk(clk),
     .ce_13m(ce_13m),
     .ce_pixel,
@@ -804,30 +819,30 @@ TC0100SCN #(.SS_IDX(SSIDX_SCN_0)) scn_main(
     // CPU interface
     .VA(cpu_addr[16:0]),
     .Din(cpu_data_out),
-    .Dout(scn_main_data_out),
+    .Dout(scn0_data_out),
     .LDSn(cpu_ds_n[0]),
     .UDSn(cpu_ds_n[1]),
-    .SCCSn(SCREENn),
+    .SCCSn(SCREEN0n),
     .RW(cpu_rw),
-    .DACKn(SDTACKn),
+    .DACKn(SDTACK0n),
 
     // RAM interface
-    .SA(scn_main_ram_addr),
-    .SDin(scn_main_ram_din),
-    .SDout(scn_main_ram_dout),
-    .WEUPn(scn_main_ram_we_up_n),
-    .WELOn(scn_main_ram_we_lo_n),
-    .SCE0n(scn_main_ram_ce_0_n),
-    .SCE1n(scn_main_ram_ce_1_n),
+    .SA(scn0_ram_addr),
+    .SDin(scn0_ram_din),
+    .SDout(scn0_ram_dout),
+    .WEUPn(scn0_ram_we_up_n),
+    .WELOn(scn0_ram_we_lo_n),
+    .SCE0n(scn0_ram_ce_0_n),
+    .SCE1n(scn0_ram_ce_1_n),
 
     // ROM interface
-    .rom_address(scn_main_rom_address),
-    .rom_req(sdr_scn_main_req),
-    .rom_ack(sdr_scn_main_ack),
-    .rom_data(sdr_scn_main_q),
+    .rom_address(scn0_rom_address),
+    .rom_req(sdr_scn0_req),
+    .rom_ack(sdr_scn0_ack),
+    .rom_data(sdr_scn0_q),
 
     // Video interface
-    .SC(scn_main_dot_color),
+    .SC(scn0_dot_color),
     .HSYNn(),
     .HBLOn,
     .VSYNn(),
@@ -838,6 +853,96 @@ TC0100SCN #(.SS_IDX(SSIDX_SCN_0)) scn_main(
     .IVLD(0),
 
     .ssbus(ssb[5])
+);
+
+//////////////////////////////////
+//// SCREEN 1 TC0100SCN
+wire [14:0] scn1_ram_addr;
+wire [15:0] scn1_data_out;
+wire [15:0] scn1_ram_din;
+wire [15:0] scn1_ram_dout;
+wire scn1_ram_we_up_n, scn1_ram_we_lo_n;
+wire scn1_ram_ce_0_n, scn1_ram_ce_1_n;
+
+wire [14:0] scn1_dot_color;
+
+wire [14:0] scn_ram_1_addr;
+wire [15:0] scn_ram_1_data;
+wire scn_ram_1_lds_n, scn_ram_1_uds_n;
+
+m68k_ram #(.WIDTHAD(15)) scn_ram_1(
+    .clock(clk),
+    .address(scn_ram_1_addr),
+    .we_lds_n(scn_ram_1_lds_n),
+    .we_uds_n(scn_ram_1_uds_n),
+    .data(scn_ram_1_data),
+    .q(scn1_ram_din)
+);
+
+m68k_ram_ss_adaptor #(.WIDTHAD(15), .SS_IDX(SSIDX_SCN_RAM_1)) scn_ram_1_ss(
+    .clk,
+    .addr_in(scn1_ram_addr),
+    .lds_n_in(scn1_ram_ce_0_n | scn1_ram_we_lo_n),
+    .uds_n_in(scn1_ram_ce_0_n | scn1_ram_we_up_n),
+    .data_in(scn1_ram_dout),
+
+    .q(scn1_ram_din),
+
+    .addr_out(scn_ram_1_addr),
+    .lds_n_out(scn_ram_1_lds_n),
+    .uds_n_out(scn_ram_1_uds_n),
+    .data_out(scn_ram_1_data),
+
+    .ssbus(ssb[16])
+);
+
+wire [20:0] scn1_rom_address;
+assign sdr_scn1_addr = SCN1_ROM_SDR_BASE[26:0] + { 6'b0, scn1_rom_address[20:0] };
+
+TC0100SCN #(.SS_IDX(SSIDX_SCN_1)) scn1(
+    .clk(clk),
+    .ce_13m(ce_13m),
+    .ce_pixel,
+
+    .reset,
+
+    // CPU interface
+    .VA(cpu_addr[16:0]),
+    .Din(cpu_data_out),
+    .Dout(scn1_data_out),
+    .LDSn(cpu_ds_n[0]),
+    .UDSn(cpu_ds_n[1]),
+    .SCCSn(SCREEN1n),
+    .RW(cpu_rw),
+    .DACKn(SDTACK1n),
+
+    // RAM interface
+    .SA(scn1_ram_addr),
+    .SDin(scn1_ram_din),
+    .SDout(scn1_ram_dout),
+    .WEUPn(scn1_ram_we_up_n),
+    .WELOn(scn1_ram_we_lo_n),
+    .SCE0n(scn1_ram_ce_0_n),
+    .SCE1n(scn1_ram_ce_1_n),
+
+    // ROM interface
+    .rom_address(scn1_rom_address),
+    .rom_req(sdr_scn1_req),
+    .rom_ack(sdr_scn_pivot_ack),
+    .rom_data(sdr_scn_pivot_q),
+
+    // Video interface
+    .SC(scn1_dot_color),
+    .HSYNn(),
+    .HBLOn,
+    .VSYNn(),
+    .VBLOn,
+    .OLDH(),
+    .OLDV(),
+    .IHLD(0), // FIXME - confirm inputs
+    .IVLD(0),
+
+    .ssbus(ssb[17])
 );
 
 
@@ -905,9 +1010,9 @@ TC0430GRW #(.SS_IDX(SSIDX_PIVOT_CTRL)) tc0430grw(
     .WELOn(pivot_ram_we_lo_n),
 
     .rom_address(sdr_pivot_addr),
-    .rom_data(sdr_pivot_q),
+    .rom_data(sdr_scn_pivot_q[15:0]),
     .rom_req(sdr_pivot_req),
-    .rom_ack(sdr_pivot_ack),
+    .rom_ack(sdr_scn_pivot_ack),
 
     .SC(pivot_dot),
 
@@ -980,7 +1085,7 @@ TC0110PR tc0110pr(
     .HSYn(HSYNCn),
     .VSYn(VSYNCn),
 
-    .SC(scn_main_dot_color),
+    .SC(scn0_dot_color),
     .OB({3'b0, obj_dot}),
 
     // RAM Interface
@@ -1006,9 +1111,11 @@ TC0360PRI #(.SS_IDX(SSIDX_PRIORITY)) tc0360pri(
     .cpu_rw,
     .cs(~PRIORITYn),
 
-    .color_in0({scn_main_dot_color[14:13], scn_main_dot_color[11:0]}),
+    .fullwidth(cfg_100scn),
+
+    .color_in0({scn0_dot_color[14:13], scn0_dot_color[11:0]}),
     .color_in1({obj_dot[11:10], obj_dot[11:0]}),
-    .color_in2(pivot_dot),
+    .color_in2(cfg_100scn ? {scn1_dot_color[14:13], scn1_dot_color[11:0]} : {8'd0, pivot_dot}),
     .color_out(pri360_color),
 
     .ssbus(ssb[11])
@@ -1109,7 +1216,8 @@ address_translator address_translator(
     .cfg_addr_rom,
     .cfg_addr_rom1,
     .cfg_addr_work_ram,
-    .cfg_addr_screen,
+    .cfg_addr_screen0,
+    .cfg_addr_screen1,
     .cfg_addr_obj,
     .cfg_addr_color,
     .cfg_addr_io0,
@@ -1122,7 +1230,8 @@ address_translator address_translator(
 
     .WORKn,
     .ROMn,
-    .SCREENn,
+    .SCREEN0n,
+    .SCREEN1n,
     .COLORn,
     .IO0n,
     .IO1n,
@@ -1144,7 +1253,8 @@ assign cpu_data_in = ~SS_SAVEn ? ss_irq_handler[cpu_addr[3:0]] :
                      ~SS_VECn ? ( cpu_addr[0] ? 16'h0000 : 16'h00ff ) :
                      ~ROMn ? rom_q :
                      ~WORKn ? workram_q :
-                     ~SCREENn ? scn_main_data_out :
+                     ~SCREEN0n ? scn0_data_out :
+                     ~SCREEN1n ? scn1_data_out :
                      ~OBJECTn ? objram_data_out :
                      ~PRIORITYn ? { pri360_data_out, pri360_data_out } :
                      ~COLORn ? (cfg_260dar ? dar_data_out : pri_data_out) :

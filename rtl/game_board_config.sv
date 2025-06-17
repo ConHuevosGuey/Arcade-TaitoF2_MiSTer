@@ -23,7 +23,8 @@ module game_board_config(
     output reg [15:0] cfg_addr_rom,
     output reg [15:0] cfg_addr_rom1,
     output reg [15:0] cfg_addr_work_ram,
-    output reg [15:0] cfg_addr_screen,
+    output reg [15:0] cfg_addr_screen0,
+    output reg [15:0] cfg_addr_screen1,
     output reg [15:0] cfg_addr_obj,
     output reg [15:0] cfg_addr_color,
     output reg [15:0] cfg_addr_io0,
@@ -50,7 +51,7 @@ always @(posedge clk) begin
         GAME_FINALB:   c = 16'b00_0_1_0_00_0_0_0_0_0_0_0_0_0;
         GAME_DONDOKOD: c = 16'b01_1_0_0_00_0_0_0_1_0_0_0_0_0;
         GAME_MEGAB:    c = 16'b01_1_0_0_00_0_0_0_0_0_0_0_1_1;
-
+        GAME_THUNDFOX: c = 16'b11_1_0_0_00_0_0_0_0_0_0_1_0_0;
         GAME_CAMELTRY: c = 16'b01_1_0_0_00_0_0_0_1_0_0_0_0_0;
         GAME_QTORIMON: c = 16'b00_0_1_0_00_0_0_0_0_0_0_0_1_1;
         GAME_LIQUIDK:  c = 16'b01_1_0_0_00_0_0_0_0_0_0_0_1_1;
@@ -85,8 +86,8 @@ always_ff @(posedge clk) begin
     cfg_addr_io0       <= 16'hff00;
     cfg_addr_io1       <= 16'hff00;
     cfg_addr_sound     <= 16'hff00;
-    cfg_addr_screen    <= 16'hff00;
-    cfg_addr_screen    <= 16'hff00;
+    cfg_addr_screen0    <= 16'hff00;
+    cfg_addr_screen0    <= 16'hff00;
     cfg_addr_obj       <= 16'hff00;
     cfg_addr_priority  <= 16'hff00;
     cfg_addr_extension <= 16'hff00;
@@ -94,7 +95,7 @@ always_ff @(posedge clk) begin
     cfg_addr_cchip     <= 16'hff00;
 
     //cfg_addr_cchip     <= 16'b0;
-    //cfg_addr_screen2  <= 16'b0;
+    //cfg_addr_screen02  <= 16'b0;
     //cfg_addr_paddle_input  <= 16'b0;
     //cfg_addr_watchdog      <= 16'b0;
     //cfg_addr_dsw_coin_read <= 16'b0;
@@ -111,7 +112,7 @@ always_ff @(posedge clk) begin
         cfg_addr_color  <= {8'h20, 8'hFF}; // 0x200000 - 0x200007 (TC0110PCR)
         cfg_addr_io0       <= {8'h30, 8'hFF}; // 0x300000 - 0x30000F (TC0220IOC)
         cfg_addr_sound    <= {8'h32, 8'hFF}; // 0x320001, 0x320003 (TC0140SYT)
-        cfg_addr_screen  <= {8'h80, 8'hF0}; // 0x800000 - 0x80FFFF (TC0100SCN RAM)
+        cfg_addr_screen0  <= {8'h80, 8'hF0}; // 0x800000 - 0x80FFFF (TC0100SCN RAM)
         cfg_addr_obj    <= {8'h90, 8'hFF}; // 0x900000 - 0x90FFFF
       end
 
@@ -121,7 +122,7 @@ always_ff @(posedge clk) begin
         cfg_addr_color       <= {8'h20, 8'hFF}; // 0x200000 - 0x201FFF (Palette RAM)
         cfg_addr_io0       <= {8'h30, 8'hFF}; // 0x300000 - 0x30000F (TC0220IOC)
         cfg_addr_sound    <= {8'h32, 8'hFF}; // 0x320000, 0x320002 (TC0140SYT)
-        cfg_addr_screen  <= {8'h80, 8'hF0}; // 0x800000 - 0x80FFFF (TC0100SCN RAM)
+        cfg_addr_screen0  <= {8'h80, 8'hF0}; // 0x800000 - 0x80FFFF (TC0100SCN RAM)
         cfg_addr_obj    <= {8'h90, 8'hFF}; // 0x900000 - 0x90FFFF
         cfg_addr_roz       <= {8'hA0, 8'hFE}; // 0xA00000 - 0xA01FFF (TC0280GRD RAM)
         cfg_addr_priority <= {8'hB0, 8'hFF}; // 0xB00000 - 0xB0001F (TC0360PRI)
@@ -135,7 +136,7 @@ always_ff @(posedge clk) begin
         cfg_addr_work_ram      <= {8'h20, 8'hFF}; // 0x200000 - 0x20FFFF
         cfg_addr_color       <= {8'h30, 8'hFF}; // 0x300000 - 0x301FFF (Palette RAM)
         cfg_addr_priority <= {8'h40, 8'hFF}; // 0x400000 - 0x40001F (TC0360PRI)
-        cfg_addr_screen  <= {8'h60, 8'hF1}; // 0x600000 - 0x60FFFF (TC0100SCN RAM), 0x61xxxx RAM (unused?)
+        cfg_addr_screen0  <= {8'h60, 8'hF1}; // 0x600000 - 0x60FFFF (TC0100SCN RAM), 0x61xxxx RAM (unused?)
         cfg_addr_obj    <= {8'h80, 8'hFF}; // 0x800000 - 0x80FFFF
       end
 
@@ -145,8 +146,8 @@ always_ff @(posedge clk) begin
         cfg_addr_io0       <= {8'h20, 8'hFF}; // 0x200000 - 0x20000F (TC0220IOC)
         cfg_addr_sound    <= {8'h22, 8'hFF}; // 0x220000, 0x220002 (TC0140SYT)
         cfg_addr_work_ram      <= {8'h30, 8'hFF}; // 0x300000 - 0x30FFFF
-        cfg_addr_screen  <= {8'h40, 8'hF0}; // 0x400000 - 0x40FFFF (TC0100SCN[0] RAM)
-        //cfg_addr_screen2  <= {8'h50, 8'hF0}; // 0x500000 - 0x50FFFF (TC0100SCN[1] RAM)
+        cfg_addr_screen0  <= {8'h40, 8'hF0}; // 0x400000 - 0x40FFFF (TC0100SCN[0] RAM)
+        cfg_addr_screen1  <= {8'h50, 8'hF0}; // 0x500000 - 0x50FFFF (TC0100SCN[1] RAM)
         cfg_addr_obj    <= {8'h60, 8'hFF}; // 0x600000 - 0x60FFFF
         cfg_addr_priority <= {8'h80, 8'hFF}; // 0x800000 - 0x80001F (TC0360PRI)
       end
@@ -158,7 +159,7 @@ always_ff @(posedge clk) begin
         cfg_addr_io0       <= {8'h30, 8'hFF}; // 0x300000 - 0x30000F (TC0220IOC)
         //cfg_addr_paddle_input  <= {8'h30, 8'hFF}; // 0x300018 - 0x30001F - Note: Shares base addr 30 with IO
         cfg_addr_sound    <= {8'h32, 8'hFF}; // 0x320000, 0x320002 (TC0140SYT)
-        cfg_addr_screen  <= {8'h80, 8'hF0}; // 0x800000 - 0x813FFF (TC0100SCN RAM) - Spans 0x80, 0x81
+        cfg_addr_screen0  <= {8'h80, 8'hF0}; // 0x800000 - 0x813FFF (TC0100SCN RAM) - Spans 0x80, 0x81
         cfg_addr_obj    <= {8'h90, 8'hFF}; // 0x900000 - 0x90FFFF
         cfg_addr_roz       <= {8'hA0, 8'hFF}; // 0xA00000 - 0xA01FFF (TC0280GRD RAM)
         cfg_addr_priority <= {8'hD0, 8'hFF}; // 0xD00000 - 0xD0001F (TC0360PRI)
@@ -170,7 +171,7 @@ always_ff @(posedge clk) begin
         cfg_addr_color  <= {8'h20, 8'hFF}; // 0x200000 - 0x200007 (TC0110PCR)
         cfg_addr_io0       <= {8'h50, 8'hFF}; // 0x500000 - 0x50000F (TC0220IOC)
         cfg_addr_sound    <= {8'h60, 8'hFF}; // 0x600000, 0x600002 (TC0140SYT)
-        cfg_addr_screen  <= {8'h80, 8'hF0}; // 0x800000 - 0x80FFFF (TC0100SCN RAM)
+        cfg_addr_screen0  <= {8'h80, 8'hF0}; // 0x800000 - 0x80FFFF (TC0100SCN RAM)
         cfg_addr_obj    <= {8'h90, 8'hFF}; // 0x900000 - 0x90FFFF
         // 0x910000 - 0x9120FF : NOP Write (error in game init code?)
       end
@@ -181,7 +182,7 @@ always_ff @(posedge clk) begin
         cfg_addr_color       <= {8'h20, 8'hFF}; // 0x200000 - 0x201FFF (Palette RAM)
         cfg_addr_io0       <= {8'h30, 8'hFF}; // 0x300000 - 0x30000F (TC0220IOC)
         cfg_addr_sound    <= {8'h32, 8'hFF}; // 0x320001, 0x320003 (TC0140SYT)
-        cfg_addr_screen  <= {8'h80, 8'hF0}; // 0x800000 - 0x80FFFF (TC0100SCN RAM)
+        cfg_addr_screen0  <= {8'h80, 8'hF0}; // 0x800000 - 0x80FFFF (TC0100SCN RAM)
         cfg_addr_obj    <= {8'h90, 8'hFF}; // 0x900000 - 0x90FFFF
         cfg_addr_priority <= {8'hB0, 8'hFF}; // 0xB00000 - 0xB0001F (TC0360PRI)
       end
@@ -193,7 +194,7 @@ always_ff @(posedge clk) begin
         cfg_addr_io0       <= {8'h50, 8'hF0}; // 0x50xxxx DSW/Coin/Input, 0x58xxxx DSW/Input/Watchdog
         cfg_addr_sound    <= {8'h60, 8'hFF}; // 0x600001, 0x600003 (TC0140SYT)
         // 0x680000 - 0x680001 : NOP Write (unknown?)
-        cfg_addr_screen  <= {8'h80, 8'hF0}; // 0x800000 - 0x80FFFF (TC0100SCN RAM)
+        cfg_addr_screen0  <= {8'h80, 8'hF0}; // 0x800000 - 0x80FFFF (TC0100SCN RAM)
         // 0x810000 - 0x81FFFF : NOP Write (error in game init code?)
         cfg_addr_obj    <= {8'h90, 8'hFF}; // 0x900000 - 0x90FFFF
       end
@@ -204,7 +205,7 @@ always_ff @(posedge clk) begin
         cfg_addr_work_ram      <= {8'h20, 8'hFF}; // 0x200000 - 0x20FFFF
         cfg_addr_color       <= {8'h30, 8'hFF}; // 0x300000 - 0x301FFF (Palette RAM)
         cfg_addr_sound    <= {8'h40, 8'hFF}; // 0x400000, 0x400002 (TC0140SYT)
-        cfg_addr_screen  <= {8'h60, 8'hF0}; // 0x600000 - 0x60FFFF (TC0100SCN RAM, not used)
+        cfg_addr_screen0  <= {8'h60, 8'hF0}; // 0x600000 - 0x60FFFF (TC0100SCN RAM, not used)
         cfg_addr_obj    <= {8'h80, 8'hFF}; // 0x800000 - 0x80FFFF
       end
 
@@ -214,7 +215,7 @@ always_ff @(posedge clk) begin
         cfg_addr_color       <= {8'h20, 8'hFF}; // 0x200000 - 0x201FFF (Palette RAM)
         cfg_addr_io0       <= {8'h30, 8'hFF}; // 0x300000 - 0x30000F (TC0510NIO)
         cfg_addr_sound    <= {8'h32, 8'hFF}; // 0x320000, 0x320002 (TC0140SYT)
-        cfg_addr_screen  <= {8'h80, 8'hF0}; // 0x800000 - 0x80FFFF (TC0100SCN RAM)
+        cfg_addr_screen0  <= {8'h80, 8'hF0}; // 0x800000 - 0x80FFFF (TC0100SCN RAM)
         cfg_addr_obj    <= {8'h90, 8'hFF}; // 0x900000 - 0x90FFFF
         cfg_addr_priority <= {8'hB0, 8'hFF}; // 0xB00000 - 0xB0001F (TC0360PRI)
       end
@@ -232,7 +233,7 @@ always_ff @(posedge clk) begin
         // cfg_addr_spritebank_sel <= {8'h50, 8'hFF}; // 0x500000 - 0x50000F
         // cfg_addr_input3        <= {8'h58, 8'hFF}; // 0x508000 - 0x50800F
         // cfg_addr_input4        <= {8'h5C, 8'hFF}; // 0x50C000 - 0x50C00F
-        cfg_addr_screen  <= {8'h80, 8'hF0}; // 0x800000 - 0x80FFFF (TC0100SCN RAM)
+        cfg_addr_screen0  <= {8'h80, 8'hF0}; // 0x800000 - 0x80FFFF (TC0100SCN RAM)
         cfg_addr_obj    <= {8'h90, 8'hFF}; // 0x900000 - 0x90FFFF
         cfg_addr_priority <= {8'hB0, 8'hFF}; // 0xB00000 - 0xB0001F (TC0360PRI)
       end
@@ -246,7 +247,7 @@ always_ff @(posedge clk) begin
         //cfg_addr_watchdog      <= {8'h33, 8'hFD}; // 0x33xxxx NOP (Watchdog?), 0x35xxxx NOP (Watchdog?)
         cfg_addr_sound    <= {8'h36, 8'hFF}; // 0x360000, 0x360002 (TC0140SYT)
         //cfg_addr_gfxbank_sel   <= {8'h38, 8'hFF}; // 0x380001
-        cfg_addr_screen  <= {8'h40, 8'hF0}; // 0x400000 - 0x40FFFF (TC0100SCN RAM)
+        cfg_addr_screen0  <= {8'h40, 8'hF0}; // 0x400000 - 0x40FFFF (TC0100SCN RAM)
         cfg_addr_obj    <= {8'h50, 8'hFF}; // 0x500000 - 0x50FFFF
       end
 
@@ -255,7 +256,7 @@ always_ff @(posedge clk) begin
         cfg_addr_work_ram      <= {8'h10, 8'hFF}; // 0x100000 - 0x10FFFF
         cfg_addr_obj    <= {8'h20, 8'hFF}; // 0x200000 - 0x20FFFF
         //cfg_addr_spritebank_sel<= {8'h30, 8'hFF}; // 0x300000 - 0x30000F
-        //cfg_addr_screen  <= {8'h40, 8'hF0}; // 0x40xxxx TC0480SCP RAM, 0x43xxxx TC0480SCP CTRL
+        //cfg_addr_screen0  <= {8'h40, 8'hF0}; // 0x40xxxx TC0480SCP RAM, 0x43xxxx TC0480SCP CTRL
         cfg_addr_priority <= {8'h50, 8'hFF}; // 0x500000 - 0x50001F (TC0360PRI)
         cfg_addr_color       <= {8'h60, 8'hFE}; // 0x600000 - 0x601FFF (Palette RAM)
         cfg_addr_io0       <= {8'h70, 8'hFF}; // 0x700000 - 0x70001F (TE7750)
@@ -268,7 +269,7 @@ always_ff @(posedge clk) begin
         cfg_addr_color       <= {8'h20, 8'hFF}; // 0x200000 - 0x201FFF (Palette RAM)
         cfg_addr_io0       <= {8'h30, 8'hFF}; // 0x300000 - 0x30000F (TC0510NIO)
         cfg_addr_sound    <= {8'h32, 8'hFF}; // 0x320000, 0x320002 (TC0140SYT)
-        cfg_addr_screen  <= {8'h80, 8'hF0}; // 0x800000 - 0x80FFFF (TC0100SCN RAM)
+        cfg_addr_screen0  <= {8'h80, 8'hF0}; // 0x800000 - 0x80FFFF (TC0100SCN RAM)
         cfg_addr_obj    <= {8'h90, 8'hFF}; // 0x900000 - 0x90FFFF
         //cfg_addr_spritebank_sel<= {8'hA2, 8'hFF}; // 0xA20000 - 0xA20001
         cfg_addr_priority <= {8'hB0, 8'hFF}; // 0xB00000 - 0xB0001F (TC0360PRI)
@@ -278,7 +279,7 @@ always_ff @(posedge clk) begin
         cfg_addr_rom      <= {8'h00, 8'hFC}; // 0x000000 - 0x03FFFF
         cfg_addr_io0       <= {8'h20, 8'hFF}; // 0x200000 - 0x20000F (TC0510NIO)
         cfg_addr_sound    <= {8'h40, 8'hFF}; // 0x400000, 0x400002 (TC0140SYT)
-        cfg_addr_screen  <= {8'h80, 8'hF0}; // 0x800000 - 0x80FFFF (TC0100SCN RAM)
+        cfg_addr_screen0  <= {8'h80, 8'hF0}; // 0x800000 - 0x80FFFF (TC0100SCN RAM)
         cfg_addr_obj    <= {8'h90, 8'hFF}; // 0x900000 - 0x90FFFF
         cfg_addr_color       <= {8'hA0, 8'hFE}; // 0xA00000 - 0xA01FFF (Palette RAM)
         cfg_addr_work_ram      <= {8'hB0, 8'hFE}; // 0xB00000 - 0xB10FFF
@@ -294,7 +295,7 @@ always_ff @(posedge clk) begin
         //cfg_addr_watchdog      <= {8'h38, 8'hFF}; // 0x380000 - 0x380001 (Watchdog) - Note: Overlaps IO chip general range
         cfg_addr_sound    <= {8'h40, 8'hFF}; // 0x400000, 0x400002 (TC0140SYT)
         cfg_addr_extension <= {8'h60, 8'hFF}; // 0x600000 - 0x60000F
-        cfg_addr_screen  <= {8'h80, 8'hF0}; // 0x800000 - 0x80FFFF (TC0100SCN RAM)
+        cfg_addr_screen0  <= {8'h80, 8'hF0}; // 0x800000 - 0x80FFFF (TC0100SCN RAM)
         cfg_addr_obj    <= {8'h90, 8'hFF}; // 0x900000 - 0x90FFFF
         cfg_addr_priority <= {8'hB0, 8'hFF}; // 0xB00000 - 0xB0001F (TC0360PRI)
       end
@@ -308,7 +309,7 @@ always_ff @(posedge clk) begin
         //cfg_addr_watchdog      <= {8'h34, 8'hFF}; // 0x340000 - 0x340001 (Watchdog) - Note: Overlaps IO chip general range
         cfg_addr_sound    <= {8'h40, 8'hFF}; // 0x400000, 0x400002 (TC0140SYT)
         cfg_addr_extension<= {8'h50, 8'hFF}; // 0x500xxx Spritebank, 0x504xxx NOP
-        cfg_addr_screen  <= {8'h80, 8'hF0}; // 0x800000 - 0x80FFFF (TC0100SCN RAM)
+        cfg_addr_screen0  <= {8'h80, 8'hF0}; // 0x800000 - 0x80FFFF (TC0100SCN RAM)
         cfg_addr_obj    <= {8'h90, 8'hFF}; // 0x900000 - 0x90FFFF
         cfg_addr_priority <= {8'hB0, 8'hFF}; // 0xB00000 - 0xB0001F (TC0360PRI)
       end
@@ -320,7 +321,7 @@ always_ff @(posedge clk) begin
         cfg_addr_color       <= {8'h40, 8'hFF}; // 0x400000 - 0x401FFF (Palette RAM)
         cfg_addr_work_ram      <= {8'h50, 8'hFF}; // 0x500000 - 0x50FFFF
         cfg_addr_obj    <= {8'h60, 8'hFF}; // 0x600000 - 0x60FFFF
-        cfg_addr_screen  <= {8'h70, 8'hF0}; // 0x700000 - 0x70FFFF (TC0100SCN RAM)
+        cfg_addr_screen0  <= {8'h70, 8'hF0}; // 0x700000 - 0x70FFFF (TC0100SCN RAM)
       end
 
       GAME_PULIRULA: begin
@@ -330,7 +331,7 @@ always_ff @(posedge clk) begin
         cfg_addr_roz       <= {8'h40, 8'hF0}; // 0x400000 - 0x401FFF (TC0430GRW RAM)
         cfg_addr_extension<= {8'h60, 8'hFF}; // 0x600000 - 0x603FFF
         cfg_addr_color       <= {8'h70, 8'hF0}; // 0x700000 - 0x701FFF (Palette RAM)
-        cfg_addr_screen  <= {8'h80, 8'hF0}; // 0x800000 - 0x80FFFF (TC0100SCN RAM)
+        cfg_addr_screen0  <= {8'h80, 8'hF0}; // 0x800000 - 0x80FFFF (TC0100SCN RAM)
         cfg_addr_obj    <= {8'h90, 8'hFF}; // 0x900000 - 0x90FFFF
         cfg_addr_priority <= {8'hA0, 8'hFF}; // 0xA00000 - 0xA0001F (TC0360PRI)
         cfg_addr_io0       <= {8'hB0, 8'hFF}; // 0xB00000 - 0xB0000F (TC0510NIO)
@@ -340,7 +341,7 @@ always_ff @(posedge clk) begin
         cfg_addr_rom      <= {8'h00, 8'hF0}; // 0x000000 - 0x0BFFFF
         cfg_addr_work_ram      <= {8'h10, 8'hFF}; // 0x100000 - 0x10FFFF
         cfg_addr_obj    <= {8'h30, 8'hFF}; // 0x300000 - 0x30FFFF
-        cfg_addr_screen  <= {8'h50, 8'hF0}; // 0x50xxxx TC0480SCP RAM, 0x53xxxx TC0480SCP CTRL
+        cfg_addr_screen0  <= {8'h50, 8'hF0}; // 0x50xxxx TC0480SCP RAM, 0x53xxxx TC0480SCP CTRL
         cfg_addr_priority <= {8'h60, 8'hFF}; // 0x600000 - 0x60001F (TC0360PRI)
         cfg_addr_color       <= {8'h70, 8'hFF}; // 0x700000 - 0x703FFF (Palette RAM)
         cfg_addr_io0       <= {8'h80, 8'hFF}; // 0x800000 - 0x80000F (TC0510NIO)
@@ -354,15 +355,15 @@ always_ff @(posedge clk) begin
         cfg_addr_color       <= {8'h40, 8'hFE}; // 0x400000 - 0x401FFF (Palette RAM)
         cfg_addr_work_ram      <= {8'h50, 8'hFF}; // 0x500000 - 0x50FFFF
         cfg_addr_obj    <= {8'h60, 8'hFF}; // 0x600000 - 0x60FFFF
-        cfg_addr_screen  <= {8'h70, 8'hFD}; // 0x700000 - 0x70FFFF (TC0100SCN RAM)
-        cfg_addr_screen <= {8'h72, 8'hFF}; // 0x720000 - 0x72000F (TC0100SCN CTRL)
+        cfg_addr_screen0  <= {8'h70, 8'hFD}; // 0x700000 - 0x70FFFF (TC0100SCN RAM)
+        cfg_addr_screen0 <= {8'h72, 8'hFF}; // 0x720000 - 0x72000F (TC0100SCN CTRL)
       end
 
       GAME_YESNOJ: begin
         cfg_addr_rom      <= {8'h00, 8'hF8}; // 0x000000 - 0x07FFFF
         cfg_addr_work_ram      <= {8'h20, 8'hFF}; // 0x200000 - 0x20FFFF
         cfg_addr_obj    <= {8'h40, 8'hFF}; // 0x400000 - 0x40FFFF
-        cfg_addr_screen  <= {8'h50, 8'hF0}; // 0x500000 - 0x50FFFF (TC0100SCN RAM)
+        cfg_addr_screen0  <= {8'h50, 8'hF0}; // 0x500000 - 0x50FFFF (TC0100SCN RAM)
         cfg_addr_color       <= {8'h60, 8'hFF}; // 0x600000 - 0x601FFF (Palette RAM)
         //cfg_addr_rtc           <= {8'h70, 8'hFF}; // 0x700000 - 0x70001F (TC8521 RTC)
         cfg_addr_sound    <= {8'h80, 8'hFF}; // 0x800000, 0x800002 (TC0140SYT)
@@ -376,7 +377,7 @@ always_ff @(posedge clk) begin
         cfg_addr_work_ram      <= {8'h10, 8'hFF}; // 0x100000 - 0x10FFFF
         cfg_addr_obj    <= {8'h20, 8'hFF}; // 0x200000 - 0x20FFFF
         //cfg_addr_spritebank_sel<= {8'h30, 8'hFF}; // 0x300000 - 0x30000F
-        cfg_addr_screen  <= {8'h40, 8'hF0}; // 0x40xxxx TC0480SCP RAM, 0x43xxxx TC0480SCP CTRL
+        cfg_addr_screen0  <= {8'h40, 8'hF0}; // 0x40xxxx TC0480SCP RAM, 0x43xxxx TC0480SCP CTRL
         cfg_addr_priority <= {8'h50, 8'hFF}; // 0x500000 - 0x50001F (TC0360PRI)
         cfg_addr_color       <= {8'h60, 8'hFF}; // 0x600000 - 0x601FFF (Palette RAM)
         cfg_addr_io0       <= {8'h70, 8'hFF}; // 0x700000 - 0x70001F (TE7750)
@@ -393,7 +394,7 @@ always_ff @(posedge clk) begin
         cfg_addr_work_ram      <= {8'h60, 8'hF0}; // 0x600000 - 0x60FFFF
         cfg_addr_priority <= {8'h70, 8'hFF}; // 0x700000 - 0x70001F (TC0360PRI)
         cfg_addr_obj    <= {8'h80, 8'hFF}; // 0x800000 - 0x80FFFF
-        cfg_addr_screen  <= {8'h90, 8'hF0}; // 0x900000 - 0x90FFFF (TC0100SCN RAM)
+        cfg_addr_screen0  <= {8'h90, 8'hF0}; // 0x900000 - 0x90FFFF (TC0100SCN RAM)
         cfg_addr_sound    <= {8'hA0, 8'hFF}; // 0xA00000, 0xA00002 (TC0140SYT)
         //cfg_addr_watchdog      <= {8'hB0, 8'hFF}; // 0xB00000 - 0xB00001 (Watchdog?)
       end
@@ -405,7 +406,7 @@ always_ff @(posedge clk) begin
         //cfg_addr_watchdog      <= {8'h50, 8'hFF}; // 0x500000 - 0x500001 (Watchdog?)
         cfg_addr_extension<= {8'h60, 8'hFC}; // 0x600000 - 0x603FFF
         cfg_addr_color       <= {8'h70, 8'hFF}; // 0x700000 - 0x701FFF (Palette RAM)
-        cfg_addr_screen  <= {8'h80, 8'hF0}; // 0x800000 - 0x80FFFF (TC0100SCN RAM)
+        cfg_addr_screen0  <= {8'h80, 8'hF0}; // 0x800000 - 0x80FFFF (TC0100SCN RAM)
         cfg_addr_obj    <= {8'h90, 8'hFF}; // 0x900000 - 0x90FFFF
         cfg_addr_priority <= {8'hA0, 8'hFF}; // 0xA00000 - 0xA0001F (TC0360PRI)
         cfg_addr_io0       <= {8'hB0, 8'hFF}; // 0xB00000 - 0xB0000F (TC0510NIO)
@@ -419,7 +420,7 @@ always_ff @(posedge clk) begin
         cfg_addr_extension<= {8'h60, 8'hFC}; // 0x600000 - 0x603FFF
         cfg_addr_color       <= {8'h70, 8'hFF}; // 0x700000 - 0x701FFF (Palette RAM)
         cfg_addr_obj    <= {8'h80, 8'hFF}; // 0x800000 - 0x80FFFF
-        cfg_addr_screen  <= {8'h90, 8'hF0}; // 0x900000 - 0x90FFFF (TC0100SCN RAM)
+        cfg_addr_screen0  <= {8'h90, 8'hF0}; // 0x900000 - 0x90FFFF (TC0100SCN RAM)
         cfg_addr_io0       <= {8'hA0, 8'hFF}; // 0xA00000 - 0xA0000F (TC0510NIO)
         cfg_addr_priority <= {8'hB0, 8'hFF}; // 0xB00000 - 0xB0001F (TC0360PRI)
       end
@@ -429,7 +430,7 @@ always_ff @(posedge clk) begin
         cfg_addr_work_ram      <= {8'h20, 8'hFF}; // 0x200000 - 0x20FFFF
         cfg_addr_color       <= {8'h30, 8'hFF}; // 0x300000 - 0x301FFF (Palette RAM)
         cfg_addr_obj    <= {8'h40, 8'hFF}; // 0x400000 - 0x40FFFF
-        cfg_addr_screen  <= {8'h50, 8'hF0}; // 0x500000 - 0x50FFFF (TC0100SCN RAM)
+        cfg_addr_screen0  <= {8'h50, 8'hF0}; // 0x500000 - 0x50FFFF (TC0100SCN RAM)
         //cfg_addr_extra_rom     <= {8'h60, 8'hF8}; // 0x600000 - 0x67FFFF
         cfg_addr_io0       <= {8'h70, 8'hFF}; // 0x700000 - 0x70000F (TC0510NIO)
         cfg_addr_priority <= {8'h90, 8'hFF}; // 0x900000 - 0x90001F (TC0360PRI)
@@ -443,7 +444,7 @@ always_ff @(posedge clk) begin
         cfg_addr_work_ram      <= {8'h30, 8'hFF}; // 0x300000 - 0x30FFFF
         cfg_addr_roz       <= {8'h40, 8'hF0}; // 0x400000 - 0x401FFF (TC0430GRW RAM)
         cfg_addr_color       <= {8'h70, 8'hFF}; // 0x700000 - 0x701FFF (Palette RAM)
-        cfg_addr_screen  <= {8'h80, 8'hF0}; // 0x800000 - 0x80FFFF (TC0100SCN RAM)
+        cfg_addr_screen0  <= {8'h80, 8'hF0}; // 0x800000 - 0x80FFFF (TC0100SCN RAM)
         cfg_addr_obj    <= {8'h90, 8'hFF}; // 0x900000 - 0x90FFFF
         cfg_addr_priority <= {8'hA0, 8'hFF}; // 0xA00000 - 0xA0001F (TC0360PRI)
         cfg_addr_io0       <= {8'hB0, 8'hFF}; // 0xB00000 - 0xB0000F (TC0510NIO)

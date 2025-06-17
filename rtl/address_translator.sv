@@ -10,7 +10,8 @@ module address_translator(
     input [15:0] cfg_addr_rom,
     input [15:0] cfg_addr_rom1,
     input [15:0] cfg_addr_work_ram,
-    input [15:0] cfg_addr_screen,
+    input [15:0] cfg_addr_screen0,
+    input [15:0] cfg_addr_screen1,
     input [15:0] cfg_addr_obj,
     input [15:0] cfg_addr_color,
     input [15:0] cfg_addr_io0,
@@ -23,7 +24,8 @@ module address_translator(
 
     output logic WORKn,
     output logic ROMn,
-    output logic SCREENn,
+    output logic SCREEN0n,
+    output logic SCREEN1n,
     output logic COLORn,
     output logic IO0n,
     output logic IO1n,
@@ -51,7 +53,8 @@ endfunction
 always_comb begin
     WORKn = 1;
     ROMn = 1;
-    SCREENn = 1;
+    SCREEN0n = 1;
+    SCREEN1n = 1;
     COLORn = 1;
     PRIORITYn = 1;
     IO0n = 1;
@@ -89,7 +92,8 @@ always_comb begin
         ROMn = match_addr_n(cpu_word_addr, cfg_addr_rom)
                 & match_addr_n(cpu_word_addr, cfg_addr_rom1);
         WORKn = match_addr_n(cpu_word_addr, cfg_addr_work_ram);
-        SCREENn = match_addr_n(cpu_word_addr, cfg_addr_screen);
+        SCREEN0n = match_addr_n(cpu_word_addr, cfg_addr_screen0);
+        SCREEN1n = match_addr_n(cpu_word_addr, cfg_addr_screen1);
         OBJECTn = match_addr_n(cpu_word_addr, cfg_addr_obj);
         COLORn = match_addr_n(cpu_word_addr, cfg_addr_color);
         IO0n = match_addr_n(cpu_word_addr, cfg_addr_io0);

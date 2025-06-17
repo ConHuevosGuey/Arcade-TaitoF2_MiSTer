@@ -14,6 +14,8 @@ package system_consts;
     parameter int SSIDX_CCHIP_RAM = 12;
     parameter int SSIDX_PIVOT_CTRL = 13;
     parameter int SSIDX_PIVOT_RAM = 14;
+    parameter int SSIDX_SCN_RAM_1 = 15;
+    parameter int SSIDX_SCN_1 = 16;
 
 
 `ifdef VERILATOR
@@ -28,6 +30,7 @@ package system_consts;
 
     parameter bit [31:0] CPU_ROM_SDR_BASE     = 32'h0000_0000;
     parameter bit [31:0] SCN0_ROM_SDR_BASE    = 32'h0090_0000;
+    parameter bit [31:0] SCN1_ROM_SDR_BASE    = 32'h0120_0000;
     parameter bit [31:0] ADPCMA_ROM_SDR_BASE  = 32'h00b0_0000;
     parameter bit [31:0] ADPCMB_ROM_SDR_BASE  = 32'h00d0_0000;
     parameter bit [31:0] AUDIO_ROM_BLOCK_BASE = 32'h0010_0000;
@@ -56,15 +59,17 @@ package system_consts;
     parameter region_t REGION_ADPCMA    = '{ base_addr:ADPCMA_ROM_SDR_BASE,  storage:STORAGE_SDR,   encoding:ENCODING_NORMAL };
     parameter region_t REGION_ADPCMB    = '{ base_addr:ADPCMB_ROM_SDR_BASE,  storage:STORAGE_SDR,   encoding:ENCODING_NORMAL };
     parameter region_t REGION_PIVOT     = '{ base_addr:PIVOT_ROM_SDR_BASE,   storage:STORAGE_SDR,   encoding:ENCODING_NORMAL };
+    parameter region_t REGION_SCN1      = '{ base_addr:SCN1_ROM_SDR_BASE,    storage:STORAGE_SDR,   encoding:ENCODING_NORMAL };
 
-    parameter region_t LOAD_REGIONS[7] = '{
+    parameter region_t LOAD_REGIONS[8] = '{
         REGION_CPU_ROM,
         REGION_SCN0,
         REGION_OBJ0,
         REGION_AUDIO_ROM,
         REGION_ADPCMA,
         REGION_ADPCMB,
-        REGION_PIVOT
+        REGION_PIVOT,
+        REGION_SCN1
     };
 
     typedef enum bit [7:0] {

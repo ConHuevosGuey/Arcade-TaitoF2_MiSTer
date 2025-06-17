@@ -1,20 +1,21 @@
 [regions]
-maincpu.id = 0
-tc0100scn_1.id = 1
+maincpu = 0
+tc0100scn_1 = 1
 sprites.id = 2
 sprites.swap = true
-audiocpu.id = 3
-"ymsnd:adpcma" = { id = 4 }
-"ymsnd:adpcmb" = { id = 5 }
+audiocpu = 3
+"ymsnd:adpcma" = 4
+"ymsnd:adpcmb" = 5
 tc0430grw = 6
 tc0280grd = 6
-tc0430scp = 7
+tc0100scn_2 = 7
+tc0430scp = 8
 
 [machines]
 finalb = "00 00"
 dondokod = "01 00"
 megablst = "02 00"
-#thundfox = "03 00"
+thundfox = "03 00"
 cameltry = "04 00"
 #qtorimon = "05 00"
 liquidk = "06 00"
@@ -74,6 +75,7 @@ solfigtr = "Solitary Fighter"
 ssi = "Super Space Invaders '91"
 pulirula = "PuLiRuLa"
 ninjak = "The Ninja Kids"
+thundfox = "Thunder Fox"
 
 [abbreviations]
 # Dip switch name abbreviations (24 character limit)

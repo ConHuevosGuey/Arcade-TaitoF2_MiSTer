@@ -412,7 +412,7 @@ wire [15:0] sdr_ch2_dout;
 wire [63:0] sdr_ch3_dout;
 wire sdr_ch3_ack;
 
-wire [15:0] sdr_ch4_dout;
+wire [31:0] sdr_ch4_dout;
 
 wire [26:0] sdr_cpu_addr, sdr_rom_addr;
 wire [15:0] sdr_cpu_din, sdr_rom_din;
@@ -684,10 +684,10 @@ F2 F2(
     .sdr_audio_req(sdr_ch2_req),
     .sdr_audio_ack(sdr_ch2_ack),
 
-    .sdr_pivot_addr(sdr_ch4_addr),
-    .sdr_pivot_q(sdr_ch4_dout),
-    .sdr_pivot_req(sdr_ch4_req),
-    .sdr_pivot_ack(sdr_ch4_ack),
+    .sdr_scn_pivot_addr(sdr_ch4_addr),
+    .sdr_scn_pivot_q(sdr_ch4_dout),
+    .sdr_scn_pivot_req(sdr_ch4_req),
+    .sdr_snc_pivot_ack(sdr_ch4_ack),
 
 
     // Memory stream interface
