@@ -12,6 +12,7 @@ The following games are currently supported by this core:
 - **Cameltry** (1989) - Unique ball-rolling puzzle game with rotatable mazes
 - **Dino Rex** (1992) - Prehistoric fighting game with large dinosaur sprites
 - **Don Doko Don** (1989) - Platform action game featuring hammer-wielding characters
+- **Thunder Fox** (1990) - Side scrolling run and gun
 - **Drift Out** (1991) - Rally racing game with overhead perspective
 - **Final Blow** (1989) - Boxing game with detailed fighter animations
 - **Growl** (1990) - Beat-em-up action game set in an African safari
