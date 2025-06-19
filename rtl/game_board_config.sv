@@ -8,6 +8,7 @@ module game_board_config(
     output reg       cfg_360pri_high,
     output reg       cfg_110pcr,
     output reg       cfg_260dar,
+    output reg       cfg_260dar_acc,
     output reg       cfg_190fmc,
     output reg [1:0] cfg_obj_extender,
     output reg       cfg_io_swap,
@@ -39,40 +40,40 @@ module game_board_config(
 // register these values to help with timing
 //
 always @(posedge clk) begin
-    bit [15:0] c;
+    bit [16:0] c;
 
     case(game)
-        //                      3 2 1 1  O 8 T I 2 4 4 1 B B
-        //                      6 6 1 9  B 2 E O 8 3 8 0 P P
-        //                      0 0 1 0  J C 7 S 0 0 0 0 P P
-        //                      P D P F  E 2 7 W G G S S 1 M
-        //                      R A C M  X 6 5 A R R C C 5 I
-        //                      I R R C  T 5 0 P D W P N   X
-        GAME_FINALB:   c = 16'b00_0_1_0_00_0_0_0_0_0_0_0_0_0;
-        GAME_DONDOKOD: c = 16'b01_1_0_0_00_0_0_0_1_0_0_0_0_0;
-        GAME_MEGAB:    c = 16'b01_1_0_0_00_0_0_0_0_0_0_0_1_1;
-        GAME_THUNDFOX: c = 16'b11_1_0_0_00_0_0_0_0_0_0_1_0_0;
-        GAME_CAMELTRY: c = 16'b01_1_0_0_00_0_0_0_1_0_0_0_0_0;
-        GAME_QTORIMON: c = 16'b00_0_1_0_00_0_0_0_0_0_0_0_1_1;
-        GAME_LIQUIDK:  c = 16'b01_1_0_0_00_0_0_0_0_0_0_0_1_1;
-        GAME_QUIZHQ:   c = 16'b00_0_1_0_00_0_0_0_0_0_0_0_1_1;
-        GAME_SSI:      c = 16'b00_1_0_0_00_0_0_0_0_0_0_0_0_0;
-        GAME_GUNFRONT: c = 16'b01_1_0_0_00_0_0_1_0_0_0_0_0_0;
-        GAME_GROWL:    c = 16'b01_1_0_1_00_1_0_0_0_0_0_0_1_1;
+        //                      3  2 1 1  O 8 T I 2 4 4 1 B B
+        //                      6  6 1 9  B 2 E O 8 3 8 0 P P
+        //                      0  0 1 0  J C 7 S 0 0 0 0 P P
+        //                      P  D P F  E 2 7 W G G S S 1 M
+        //                      R  A C M  X 6 5 A R R C C 5 I
+        //                      I  R R C  T 5 0 P D W P N   X
+        GAME_FINALB:   c = 17'b00_00_1_0_00_0_0_0_0_0_0_0_0_0;
+        GAME_DONDOKOD: c = 17'b01_01_0_0_00_0_0_0_1_0_0_0_0_0;
+        GAME_MEGAB:    c = 17'b01_01_0_0_00_0_0_0_0_0_0_0_1_1;
+        GAME_THUNDFOX: c = 17'b11_11_0_0_00_0_0_0_0_0_0_1_0_0;
+        GAME_CAMELTRY: c = 17'b01_01_0_0_00_0_0_0_1_0_0_0_0_0;
+        GAME_QTORIMON: c = 17'b00_00_1_0_00_0_0_0_0_0_0_0_1_1;
+        GAME_LIQUIDK:  c = 17'b01_01_0_0_00_0_0_0_0_0_0_0_1_1;
+        GAME_QUIZHQ:   c = 17'b00_00_1_0_00_0_0_0_0_0_0_0_1_1;
+        GAME_SSI:      c = 17'b00_01_0_0_00_0_0_0_0_0_0_0_0_0;
+        GAME_GUNFRONT: c = 17'b01_01_0_0_00_0_0_1_0_0_0_0_0_0;
+        GAME_GROWL:    c = 17'b01_01_0_1_00_1_0_0_0_0_0_0_1_1;
 
-        GAME_NINJAK:   c = 16'b01_1_0_1_00_0_1_1_0_0_0_0_0_0;
-        GAME_SOLFIGTR: c = 16'b01_1_0_1_00_1_0_0_0_0_0_0_1_1;
+        GAME_NINJAK:   c = 17'b01_01_0_1_00_0_1_1_0_0_0_0_0_0;
+        GAME_SOLFIGTR: c = 17'b01_01_0_1_00_1_0_0_0_0_0_0_1_1;
 
-        GAME_PULIRULA: c = 16'b11_1_0_0_10_0_0_0_0_1_0_0_1_0;
+        GAME_PULIRULA: c = 17'b11_01_0_0_10_0_0_0_0_1_0_0_1_0;
 
-        GAME_DINOREX:  c = 16'b01_1_0_0_01_0_0_0_0_0_0_0_1_1;
-        GAME_QJINSEI:  c = 16'b01_1_0_0_01_0_0_0_0_0_0_0_1_1;
+        GAME_DINOREX:  c = 17'b01_01_0_0_01_0_0_0_0_0_0_0_1_1;
+        GAME_QJINSEI:  c = 17'b01_01_0_0_01_0_0_0_0_0_0_0_1_1;
 
-        GAME_DRIFTOUT: c = 16'b11_1_0_0_00_0_0_0_0_1_0_0_1_0;
-        default:       c = 16'b00_0_1_0_00_0_0_0_0_0_0_0_0_0;
+        GAME_DRIFTOUT: c = 17'b11_01_0_0_00_0_0_0_0_1_0_0_1_0;
+        default:       c = 17'b00_00_1_0_00_0_0_0_0_0_0_0_0_0;
     endcase
 
-    { cfg_360pri_high, cfg_360pri, cfg_260dar, cfg_110pcr, cfg_190fmc, cfg_obj_extender,
+    { cfg_360pri_high, cfg_360pri, cfg_260dar_acc, cfg_260dar, cfg_110pcr, cfg_190fmc, cfg_obj_extender,
         cfg_tmp82c265, cfg_te7750, cfg_io_swap,
         cfg_280grd, cfg_430grw, cfg_480scp, cfg_100scn,
         cfg_bpp15, cfg_bppmix } <= c;

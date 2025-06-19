@@ -81,7 +81,7 @@ module F2(
     input             pause
 );
 
-wire cfg_260dar, cfg_110pcr, cfg_360pri, cfg_360pri_high, cfg_io_swap, cfg_tmp82c265, cfg_190fmc, cfg_te7750;
+wire cfg_260dar, cfg_260dar_acc, cfg_110pcr, cfg_360pri, cfg_360pri_high, cfg_io_swap, cfg_tmp82c265, cfg_190fmc, cfg_te7750;
 wire cfg_280grd, cfg_430grw, cfg_480scp, cfg_100scn;
 wire cfg_bpp15, cfg_bppmix;
 
@@ -108,6 +108,7 @@ game_board_config game_board_config(
 
     .cfg_110pcr,
     .cfg_260dar,
+    .cfg_260dar_acc,
     .cfg_360pri,
     .cfg_360pri_high,
     .cfg_obj_extender,
@@ -902,7 +903,7 @@ assign sdr_scn1_addr = SCN1_ROM_SDR_BASE[26:0] + { 6'b0, scn1_rom_address[20:0] 
 TC0100SCN #(.SS_IDX(SSIDX_SCN_1)) scn1(
     .clk(clk),
     .ce_13m(ce_13m),
-    .ce_pixel,
+    .ce_pixel(), // FIXME: scn0 should be authorative here
 
     .reset,
 
@@ -934,9 +935,9 @@ TC0100SCN #(.SS_IDX(SSIDX_SCN_1)) scn1(
     // Video interface
     .SC(scn1_dot_color),
     .HSYNn(),
-    .HBLOn,
+    .HBLOn(),
     .VSYNn(),
-    .VBLOn,
+    .VBLOn(),
     .OLDH(),
     .OLDV(),
     .IHLD(0), // FIXME - confirm inputs
@@ -1141,8 +1142,8 @@ TC0260DAR tc0260dar(
     .CS(~COLORn),
     .DTACKn(dar_dtack_n),
 
-    // FIXME
-    .ACCMODE(1),
+    // FIXME : some boards can control this
+    .ACCMODE(~cfg_260dar_acc),
 
     // Video Input
     .HBLANKn(HBLn),

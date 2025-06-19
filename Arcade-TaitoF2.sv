@@ -434,7 +434,7 @@ sdram sdram
     .init(~pll_locked),        // reset to initialize RAM
     .clk(clk_sdr),         // clock 64MHz
 
-    .doRefresh(0),
+    .doRefresh(core_hb | core_vb),
 
     .SDRAM_DQ,    // 16 bit bidirectional data bus
     .SDRAM_A,     // 13 bit multiplexed address bus
@@ -674,10 +674,10 @@ F2 F2(
     .sdr_cpu_req(sdr_cpu_req),
     .sdr_cpu_ack(sdr_cpu_ack),
 
-    .sdr_scn_main_addr(sdr_ch1_addr),
-    .sdr_scn_main_q(sdr_ch1_dout),
-    .sdr_scn_main_req(sdr_ch1_req),
-    .sdr_scn_main_ack(sdr_ch1_ack),
+    .sdr_scn0_addr(sdr_ch1_addr),
+    .sdr_scn0_q(sdr_ch1_dout),
+    .sdr_scn0_req(sdr_ch1_req),
+    .sdr_scn0_ack(sdr_ch1_ack),
 
     .sdr_audio_addr(sdr_ch2_addr),
     .sdr_audio_q(sdr_ch2_dout),
@@ -687,8 +687,7 @@ F2 F2(
     .sdr_scn_pivot_addr(sdr_ch4_addr),
     .sdr_scn_pivot_q(sdr_ch4_dout),
     .sdr_scn_pivot_req(sdr_ch4_req),
-    .sdr_snc_pivot_ack(sdr_ch4_ack),
-
+    .sdr_scn_pivot_ack(sdr_ch4_ack),
 
     // Memory stream interface
     .ddr_acquire(ddr_f2.acquire),
